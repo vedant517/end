@@ -25,11 +25,23 @@ const getSelectedVariant = (product, item = {}) => {
   let matched = null;
 
   if (variantKey) {
-    matched = (product?.variants || []).find((variant) =>
-      String(variant._id || variant.id || variant.color || variant.fabric || variant.name) === String(variantKey) ||
-      String(variant.color || "").toLowerCase() === String(variantKey).toLowerCase() ||
-      String(variant.fabric || "").toLowerCase() === String(variantKey).toLowerCase()
-    );
+    const searchKey = String(variantKey).toLowerCase().trim();
+    matched = (product?.variants || []).find((variant) => {
+      const vId = String(variant._id || variant.id || "");
+      const vColor = String(variant.color || "").toLowerCase().trim();
+      const vFabric = String(variant.fabric || "").toLowerCase().trim();
+      const vName = String(variant.name || "").toLowerCase().trim();
+
+      return (
+        vId.toLowerCase() === searchKey ||
+        (vColor && vColor === searchKey) ||
+        (vFabric && vFabric === searchKey) ||
+        (vName && vName === searchKey) ||
+        (vColor && vFabric && `${vColor} - ${vFabric}` === searchKey) ||
+        (vColor && vFabric && `${vFabric} - ${vColor}` === searchKey) ||
+        (vColor && searchKey.includes(vColor) && vFabric && searchKey.includes(vFabric))
+      );
+    });
   }
 
   // Fallback: match by price if variantKey is missing or no match found

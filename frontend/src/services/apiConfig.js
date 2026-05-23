@@ -8,14 +8,16 @@ const getApiBaseUrl = () => {
 
   if (envUrl) {
     envUrl = envUrl.trim();
-    if (envUrl.endsWith('/')) {
+    // Remove trailing slashes
+    while (envUrl.endsWith('/')) {
       envUrl = envUrl.slice(0, -1);
     }
-    // Automatically append '/api' if not present (since backend routes are mounted under '/api')
-    if (envUrl && !envUrl.endsWith('/api') && envUrl !== '/api') {
-      envUrl = `${envUrl}/api`;
+    // Remove trailing /api if present to avoid duplication
+    if (envUrl.endsWith('/api')) {
+      envUrl = envUrl.slice(0, -4);
     }
-    return envUrl;
+    // Now append /api exactly once
+    return `${envUrl}/api`;
   }
 
   return '/api';

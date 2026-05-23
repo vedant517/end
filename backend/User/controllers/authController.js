@@ -172,9 +172,12 @@ export const registerUser = async (req, res) => {
       role: "user",
     });
 
+    const token = signAuthToken(user);
+    setAuthCookie(res, token);
+
     res.status(201).json({
       success: true,
-      message: "Account created. Please verify with OTP.",
+      message: "Registration successful",
       user: formatAuthUser(user),
     });
   } catch (err) {
