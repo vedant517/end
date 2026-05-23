@@ -7,6 +7,9 @@ const wishlistItemSchema = new mongoose.Schema({
   image: { type: String },
   rating: { type: Number, default: 4 },
   description: { type: String },
+  color: { type: String, default: "" },
+  fabric: { type: String, default: "" },
+  variant: { type: String, default: "" },
 });
 
 const wishlistSchema = new mongoose.Schema(
@@ -17,4 +20,4 @@ const wishlistSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-export default mongoose.models.Wishlist || mongoose.model("Wishlist", wishlistSchema);
+export default mongoose.models.Wishlist || mongoose.model("Wishlist", wishlistSchema);

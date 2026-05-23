@@ -27,6 +27,7 @@ export const wishlistApi = createApi({
       },
     }),
 
+    // body should include: { productId, color?, fabric?, variant? }
     addToWishlist: builder.mutation({
       query: (body) => ({
         url: '/wishlist/add',
@@ -36,11 +37,18 @@ export const wishlistApi = createApi({
       invalidatesTags: ['Wishlist'],
     }),
 
+    // arg: { productId, color?, fabric? }
     removeFromWishlist: builder.mutation({
-      query: (productId) => ({
-        url: `/wishlist/remove/${productId}`,
-        method: 'DELETE',
-      }),
+      query: ({ productId, color, fabric }) => {
+        const params = new URLSearchParams();
+        if (color)  params.append('color',  color);
+        if (fabric) params.append('fabric', fabric);
+        const qs = params.toString();
+        return {
+          url: `/wishlist/remove/${productId}${qs ? `?${qs}` : ''}`,
+          method: 'DELETE',
+        };
+      },
       invalidatesTags: ['Wishlist'],
     }),
 
