@@ -1,4 +1,4 @@
-import { API_ORIGIN } from '../services/apiConfig';
+import { getAssetOrigin } from '../services/apiConfig';
 
 const PLACEHOLDER_BG = '938359';
 
@@ -59,6 +59,13 @@ const extractImageValue = (image) => {
   return parseObjectString(value) || value;
 };
 
+const rewriteLocalhostUrl = (url) => {
+  if (!/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?/i.test(url)) return url;
+  const origin = getAssetOrigin();
+  if (!origin) return url;
+  return url.replace(/^https?:\/\/[^/]+/i, origin);
+};
+
 export const resolveImageUrl = (image, name = 'Item', options = {}) => {
   const value = extractImageValue(image);
   if (!value) {
@@ -68,14 +75,22 @@ export const resolveImageUrl = (image, name = 'Item', options = {}) => {
   }
 
   if (value.startsWith('http://') || value.startsWith('https://') || value.startsWith('data:') || value.startsWith('blob:')) {
-    return value;
+    return rewriteLocalhostUrl(
+      value.startsWith('http://') && value.includes('localhost')
+        ? value.replace(/^http:/i, 'https:')
+        : value
+    );
   }
 
   if (value.startsWith('//')) {
     return `https:${value}`;
   }
 
+  const origin = getAssetOrigin();
   const cleanPath = value.replace(/\\/g, '/');
   const normalizedPath = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
-  return `${API_ORIGIN}${normalizedPath}`;
+
+  if (!origin) return normalizedPath;
+
+  return `${origin}${normalizedPath}`;
 };

@@ -2,6 +2,7 @@ import Product from "../models/Product.js";
 import Offer from "../models/Offer.js";
 import User from "../../models/User.js";
 import { enrichEmbeddedReviews, resolveReviewerName } from "../utils/enrichReviews.js";
+import { normalizeProductMedia } from "../../utils/mediaUrl.js";
 
 // ✅ GET MAIN CATEGORIES
 export const getMainCategories = async (req, res) => {
@@ -86,10 +87,12 @@ export const getProducts = async (req, res) => {
       products.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     }
 
+    const normalized = products.map((p) => normalizeProductMedia(p, req));
+
     res.json({
       success: true,
-      data: products,
-      products: products,
+      data: normalized,
+      products: normalized,
     });
   } catch (error) {
     console.error("GET PRODUCTS ERROR:", error);
@@ -139,11 +142,12 @@ export const getProductById = async (req, res) => {
     }
 
     const withReviewerNames = await enrichEmbeddedReviews(productData);
+    const withMedia = normalizeProductMedia(withReviewerNames, req);
 
     res.json({
       success: true,
-      data: withReviewerNames,
-      product: withReviewerNames,
+      data: withMedia,
+      product: withMedia,
     });
   } catch (error) {
     console.error("GET PRODUCT ERROR:", error);

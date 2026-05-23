@@ -13,6 +13,11 @@ services:
         value: 20.18.0
       - key: VITE_API_URL
         value: /api
+      - key: RENDER_EXTERNAL_URL
+        fromService:
+          type: web
+          name: shitalya-admin
+          property: host
       - key: MONGODB_URI
         sync: false
       - key: JWT_SECRET

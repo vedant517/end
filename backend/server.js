@@ -73,7 +73,53 @@ app.use(
   })
 );
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+
+    contentSecurityPolicy: {
+      useDefaults: true,
+
+      directives: {
+        defaultSrc: ["'self'"],
+
+        imgSrc: [
+          "'self'",
+          "data:",
+          "blob:",
+          "https://res.cloudinary.com",
+          "https://*.cloudinary.com",
+          "https:"
+        ],
+
+        scriptSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "'unsafe-eval'",
+          "https:"
+        ],
+
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+          "https:"
+        ],
+
+        connectSrc: [
+          "'self'",
+          "https:",
+          "wss:"
+        ],
+
+        fontSrc: [
+          "'self'",
+          "data:",
+          "https:"
+        ],
+      },
+    },
+  })
+);
 app.use(process.env.NODE_ENV === "production" ? morgan("combined") : morgan("dev"));
 app.use(compression());
 
@@ -86,7 +132,9 @@ app.use((req, res, next) => {
 // ==============================
 // ✅ STATIC FILES
 // ==============================
-app.use("/uploads", express.static("uploads"));
+const uploadsDir = path.resolve(__dirname, "uploads");
+app.use("/uploads", express.static(uploadsDir));
+console.log(`📁 Static uploads: ${uploadsDir}`);
 
 // ==============================
 // ✅ ROUTES

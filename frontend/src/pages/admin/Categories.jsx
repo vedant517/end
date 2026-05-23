@@ -177,6 +177,8 @@ const Categories = () => {
           const imgSrc = resolveImageUrl(cat.image, cat.name, { fallback: null });
           const hasError = imgErrors[cat._id];
           const isFirst = idx === 0;
+                            console.log(imgSrc)
+
           return (
             <div key={cat._id} className="rounded-2xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-shadow duration-300 bg-white">
               {/* Image */}

@@ -1,9 +1,14 @@
 import Category from "../../User/models/Category.js";
+import { getMulterFileUrl, resolveMediaUrl } from "../../utils/mediaUrl.js";
 
 export const getCategories = async (req, res) => {
   try {
-    const categories = await Category.find().sort({ createdAt: -1 });
-    res.json({ success: true, data: categories });
+    const categories = await Category.find().sort({ createdAt: -1 }).lean();
+    const data = categories.map((cat) => ({
+      ...cat,
+      image: cat.image ? resolveMediaUrl(cat.image, req) || cat.image : cat.image,
+    }));
+    res.json({ success: true, data });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -17,8 +22,7 @@ export const createCategory = async (req, res) => {
     // Support both Cloudinary file upload and direct URL
     let image = "";
     if (req.file) {
-      const normalizedPath = req.file.path.replace(/\\/g, "/");
-      image = normalizedPath.startsWith("http") ? normalizedPath : (normalizedPath.startsWith("/") ? normalizedPath : "/" + normalizedPath);
+      image = getMulterFileUrl(req.file) || req.file.path;
     } else if (req.body.imageUrl && typeof req.body.imageUrl === 'string') {
       image = req.body.imageUrl;
     } else if (req.body.image && typeof req.body.image === 'string' && req.body.image !== '[object Object]') {
@@ -56,8 +60,7 @@ export const updateCategory = async (req, res) => {
     }
     
     if (req.file) {
-      const normalizedPath = req.file.path.replace(/\\/g, "/");
-      updateData.image = normalizedPath.startsWith("http") ? normalizedPath : (normalizedPath.startsWith("/") ? normalizedPath : "/" + normalizedPath);
+      updateData.image = getMulterFileUrl(req.file) || req.file.path;
       console.log(`[CategoryUpdate] New file uploaded: ${updateData.image}`);
     } else if (req.body.imageUrl && typeof req.body.imageUrl === 'string' && req.body.imageUrl.trim() !== '') {
       updateData.image = req.body.imageUrl;

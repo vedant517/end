@@ -1,6 +1,7 @@
 import Product from '../models/Product.js';
 import { PRODUCT_MAIN_CATEGORIES, PRODUCT_SUB_CATEGORIES, PRODUCT_COLORS } from '../config/constants.js';
 import { createCode128Svg } from '../../utils/barcode.js';
+import { getMulterFileUrl, normalizeProductMedia } from '../../utils/mediaUrl.js';
 
 const parseVariants = (variants) => {
   if (!variants) return [];
@@ -73,7 +74,7 @@ export const getProducts = async (req, res) => {
       total,
       page: Number(page),
       pages: Math.ceil(total / Number(limit)),
-      data: products,
+      data: products.map((p) => normalizeProductMedia(p, req)),
     });
   } catch (error) {
     console.error('Get Products Error:', error);
@@ -133,33 +134,35 @@ export const createProduct = async (req, res) => {
     if (req.files && req.files.length > 0) {
       req.files.forEach(file => {
         if (file.fieldname === 'image') {
-          productData.image = file.path;
+          const uploadedUrl = getMulterFileUrl(file);
+          productData.image = uploadedUrl;
           if (!productData.images) productData.images = [];
           productData.images.push({
-            url: file.path,
-            public_id: file.filename || Date.now().toString()
+            url: uploadedUrl,
+            public_id: file.filename || file.public_id || Date.now().toString()
           });
         } else if (file.fieldname === 'images') {
           if (!productData.images) productData.images = [];
+          const uploadedUrl = getMulterFileUrl(file);
           productData.images.push({
-            url: file.path,
-            public_id: file.filename || Date.now().toString()
+            url: uploadedUrl,
+            public_id: file.filename || file.public_id || Date.now().toString()
           });
         } else if (file.fieldname.startsWith('variantImage_')) {
           const idx = parseInt(file.fieldname.split('_')[1]);
           if (productData.variants && productData.variants[idx]) {
-            productData.variants[idx].image = file.path;
-            // Also add to images array
+            const uploadedUrl = getMulterFileUrl(file);
+            productData.variants[idx].image = uploadedUrl;
             if (!productData.variants[idx].images) productData.variants[idx].images = [];
-            productData.variants[idx].images.push(file.path);
+            productData.variants[idx].images.push(uploadedUrl);
           }
         } else if (file.fieldname.startsWith('variantImages_')) {
           const idx = parseInt(file.fieldname.split('_')[1]);
           if (productData.variants && productData.variants[idx]) {
+            const uploadedUrl = getMulterFileUrl(file);
             if (!productData.variants[idx].images) productData.variants[idx].images = [];
-            productData.variants[idx].images.push(file.path);
-            // Use first one as main if not set
-            if (!productData.variants[idx].image) productData.variants[idx].image = file.path;
+            productData.variants[idx].images.push(uploadedUrl);
+            if (!productData.variants[idx].image) productData.variants[idx].image = uploadedUrl;
           }
         }
 
@@ -173,7 +176,10 @@ export const createProduct = async (req, res) => {
 
     const product = await Product.create(productData);
 
-    res.status(201).json({ success: true, data: product });
+    res.status(201).json({
+      success: true,
+      data: normalizeProductMedia(product.toObject(), req),
+    });
   } catch (error) {
     console.error('Create Product Error:', error);
     res.status(400).json({ success: false, message: error.message });
@@ -188,7 +194,10 @@ export const getProduct = async (req, res) => {
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
-    res.status(200).json({ success: true, data: product });
+    res.status(200).json({
+      success: true,
+      data: normalizeProductMedia(product, req),
+    });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }
@@ -254,31 +263,35 @@ export const updateProduct = async (req, res) => {
     if (req.files && req.files.length > 0) {
       req.files.forEach(file => {
         if (file.fieldname === 'image') {
-          updateData.image = file.path;
+          const uploadedUrl = getMulterFileUrl(file);
+          updateData.image = uploadedUrl;
           if (!updateData.images) updateData.images = [];
           updateData.images.push({
-            url: file.path,
-            public_id: file.filename || Date.now().toString()
+            url: uploadedUrl,
+            public_id: file.filename || file.public_id || Date.now().toString()
           });
         } else if (file.fieldname === 'images') {
           if (!updateData.images) updateData.images = [];
+          const uploadedUrl = getMulterFileUrl(file);
           updateData.images.push({
-            url: file.path,
-            public_id: file.filename || Date.now().toString()
+            url: uploadedUrl,
+            public_id: file.filename || file.public_id || Date.now().toString()
           });
         } else if (file.fieldname.startsWith('variantImage_')) {
           const idx = parseInt(file.fieldname.split('_')[1]);
           if (updateData.variants && updateData.variants[idx]) {
-            updateData.variants[idx].image = file.path;
+            const uploadedUrl = getMulterFileUrl(file);
+            updateData.variants[idx].image = uploadedUrl;
             if (!updateData.variants[idx].images) updateData.variants[idx].images = [];
-            updateData.variants[idx].images.push(file.path);
+            updateData.variants[idx].images.push(uploadedUrl);
           }
         } else if (file.fieldname.startsWith('variantImages_')) {
           const idx = parseInt(file.fieldname.split('_')[1]);
           if (updateData.variants && updateData.variants[idx]) {
+            const uploadedUrl = getMulterFileUrl(file);
             if (!updateData.variants[idx].images) updateData.variants[idx].images = [];
-            updateData.variants[idx].images.push(file.path);
-            if (!updateData.variants[idx].image) updateData.variants[idx].image = file.path;
+            updateData.variants[idx].images.push(uploadedUrl);
+            if (!updateData.variants[idx].image) updateData.variants[idx].image = uploadedUrl;
           }
         }
 
@@ -296,7 +309,10 @@ export const updateProduct = async (req, res) => {
       runValidators: false, // Set to false to avoid schema validation issues during partial updates
     }).lean();
 
-    res.status(200).json({ success: true, data: product });
+    res.status(200).json({
+      success: true,
+      data: normalizeProductMedia(product, req),
+    });
   } catch (error) {
     console.error('Update Product Error:', error);
     res.status(400).json({ success: false, message: error.message });
