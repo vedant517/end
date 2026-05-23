@@ -109,7 +109,7 @@ const getAddressLine = (address = {}) =>
     address.address,
     address.city,
     address.state,
-    address.postalCode,
+    address.postalCode || address.zipCode,
     address.country,
   ].filter(Boolean).join(', ');
 
@@ -124,9 +124,9 @@ export const printOrderAddressReceipt = (order) => {
       <div class="row">
         <div>
           <div class="tiny muted">Ship To</div>
-          <h1 style="margin: 6px 0 8px; font-size: 24px;">${escapeHtml(address.fullName || 'Customer')}</h1>
+          <h1 style="margin: 6px 0 8px; font-size: 24px;">${escapeHtml(address.fullName || (address.firstName ? `${address.firstName} ${address.lastName || ''}`.trim() : '') || address.name || 'Customer')}</h1>
           <p style="margin: 0; line-height: 1.55; font-size: 15px;">${escapeHtml(getAddressLine(address) || 'Address not available')}</p>
-          <p style="margin: 8px 0 0; font-size: 13px;"><strong>Phone:</strong> ${escapeHtml(address.phone || order.phone || 'N/A')}</p>
+          <p style="margin: 8px 0 0; font-size: 13px;"><strong>Phone:</strong> ${escapeHtml(address.phone || address.phoneNumber || address.mobile || order.phone || 'N/A')}</p>
         </div>
         <div style="text-align: right;">
           <div class="tiny muted">Order</div>
@@ -154,13 +154,16 @@ export const printOrderAddressReceipt = (order) => {
       <table>
         <thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead>
         <tbody>
-          ${items.map((item) => `
+          ${items.map((item) => {
+            const finalPrice = item.price || item.product?.discountPrice || item.product?.price || 0;
+            return `
             <tr>
               <td>${escapeHtml(item.name || 'Product')}</td>
               <td>${escapeHtml(item.qty || item.quantity || 1)}</td>
-              <td>${escapeHtml(formatINR(item.price || 0))}</td>
+              <td>${escapeHtml(formatINR(finalPrice))}</td>
             </tr>
-          `).join('')}
+          `;
+          }).join('')}
         </tbody>
       </table>
     </main>

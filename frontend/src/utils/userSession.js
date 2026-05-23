@@ -3,7 +3,7 @@
  * Prevents cart/wishlist/notification data leaking between accounts on the same device.
  */
 
-const GLOBAL_KEYS = ['userId', 'authToken', 'customerLoggedIn'];
+const GLOBAL_KEYS = ['userId', 'customerLoggedIn'];
 const SCOPED_PREFIXES = ['cart_', 'wishlist_', 'notification_'];
 
 export const getStoredUserId = () => {
@@ -11,15 +11,16 @@ export const getStoredUserId = () => {
   return id ? String(id) : null;
 };
 
-export const getStoredAuthToken = () => localStorage.getItem('authToken') || null;
+
 
 export const userScopedKey = (base, userId = getStoredUserId()) =>
   userId ? `${base}_${userId}` : base;
 
-export const setStoredUserSession = ({ userId, token }) => {
-  if (userId) localStorage.setItem('userId', String(userId));
-  if (token) localStorage.setItem('authToken', token);
-  if (userId) localStorage.setItem('customerLoggedIn', 'true');
+export const setStoredUserSession = ({ userId }) => {
+  if (userId) {
+    localStorage.setItem('userId', String(userId));
+    localStorage.setItem('customerLoggedIn', 'true');
+  }
 };
 
 /** Remove all customer session keys (including prior users' scoped cart/wishlist keys). */

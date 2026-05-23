@@ -1,5 +1,6 @@
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
+import Address from "../../models/Address.js";
 import Transaction from "../../admin/models/Transaction.js";
 import { calculateDiscount } from "./couponController.js";
 import { calculateShippingCharges } from "../../services/shiprocketService.js";
@@ -21,13 +22,22 @@ const getSelectedVariant = (product, item = {}) => {
     item.variantId ||
     item.variant;
 
-  if (!variantKey) return null;
+  let matched = null;
 
-  return (product?.variants || []).find((variant) =>
-    String(variant._id || variant.id || variant.color || variant.fabric || variant.name) === String(variantKey) ||
-    String(variant.color || "").toLowerCase() === String(variantKey).toLowerCase() ||
-    String(variant.fabric || "").toLowerCase() === String(variantKey).toLowerCase()
-  );
+  if (variantKey) {
+    matched = (product?.variants || []).find((variant) =>
+      String(variant._id || variant.id || variant.color || variant.fabric || variant.name) === String(variantKey) ||
+      String(variant.color || "").toLowerCase() === String(variantKey).toLowerCase() ||
+      String(variant.fabric || "").toLowerCase() === String(variantKey).toLowerCase()
+    );
+  }
+
+  // Fallback: match by price if variantKey is missing or no match found
+  if (!matched && item.price) {
+    matched = (product?.variants || []).find((variant) => Number(variant.price) === Number(item.price));
+  }
+
+  return matched || null;
 };
 
 const getProductPrice = (product, item = {}) => {
@@ -58,6 +68,18 @@ export const createOrder = async (req, res) => {
     // 2. Handle flexible shipping address input
     let shippingAddress = req.body.shippingAddress;
     
+    // If shippingAddress is an ID/string (or ObjectId representation), fetch it from Database
+    if (shippingAddress && (typeof shippingAddress === 'string' || (typeof shippingAddress === 'object' && shippingAddress.toString && /^[0-9a-fA-F]{24}$/.test(shippingAddress.toString())))) {
+      try {
+        const addressDoc = await Address.findById(shippingAddress);
+        if (addressDoc) {
+          shippingAddress = addressDoc.toObject();
+        }
+      } catch (err) {
+        console.error("Error fetching shipping address by ID:", err);
+      }
+    }
+    
     // If shippingAddress is missing but flat fields are present, map them
     if (!shippingAddress && (req.body.address || req.body.city || req.body.zipCode)) {
       shippingAddress = {
@@ -68,6 +90,22 @@ export const createOrder = async (req, res) => {
         country: req.body.country,
         state: req.body.state,
         phone: req.body.phoneNumber || req.body.phone
+      };
+    }
+
+    // Normalize shippingAddress object to match Order's shippingAddress schema
+    if (shippingAddress && typeof shippingAddress === 'object' && !(shippingAddress.toString && /^[0-9a-fA-F]{24}$/.test(shippingAddress.toString()))) {
+      shippingAddress = {
+        fullName: shippingAddress.fullName || `${shippingAddress.firstName || ''} ${shippingAddress.lastName || ''}`.trim() || undefined,
+        firstName: shippingAddress.firstName || undefined,
+        lastName: shippingAddress.lastName || undefined,
+        email: shippingAddress.email || undefined,
+        phone: shippingAddress.phone || shippingAddress.phoneNumber || undefined,
+        address: shippingAddress.address,
+        city: shippingAddress.city,
+        state: shippingAddress.state,
+        postalCode: shippingAddress.postalCode || shippingAddress.zipCode,
+        country: shippingAddress.country
       };
     }
 
@@ -219,9 +257,6 @@ export const getUserOrders = async (req, res) => {
         const orderObj = order.toObject();
         const enrichedItems = await Promise.all(
           (orderObj.orderItems || []).map(async (item) => {
-            // If fabric and color are already stored, no need to look up
-            if (item.fabric && item.color) return item;
-
             try {
               // product is already populated
               const product = item.product?._id ? item.product : await Product.findById(item.product).lean();
@@ -229,11 +264,20 @@ export const getUserOrders = async (req, res) => {
 
               // Try to find the matching variant
               const matchedVariant = getSelectedVariant(product, item);
+              
+              // Filter product variants to only show the matched one, avoiding frontend mismatch
+              if (matchedVariant && product.variants) {
+                product.variants = [matchedVariant];
+              }
+
               return {
                 ...item,
+                product, // override populated product with the filtered one
+                price: Number(item.price) || getProductPrice(product, item),
                 fabric: item.fabric || matchedVariant?.fabric || "",
                 color: item.color || matchedVariant?.color || "",
                 variant: item.variant || (matchedVariant ? `${matchedVariant.color} - ${matchedVariant.fabric}` : ""),
+                selectedVariant: matchedVariant || null // Ensure frontend gets it directly if needed
               };
             } catch {
               return item;
@@ -296,7 +340,16 @@ export const getOrderById = async (req, res) => {
     if (!order)
       return res.status(404).json({ success: false, message: "Order not found." });
 
-    res.json({ success: true, data: order });
+    const orderObj = order.toObject();
+    orderObj.orderItems = (orderObj.orderItems || []).map((item) => {
+      const product = item.product;
+      return {
+        ...item,
+        price: Number(item.price) || getProductPrice(product, item),
+      };
+    });
+
+    res.json({ success: true, data: orderObj });
   } catch (err) {
     console.error("Get order error:", err.message);
     res.status(500).json({ success: false, message: "Server error fetching order." });

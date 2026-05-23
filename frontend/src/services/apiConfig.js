@@ -4,10 +4,18 @@
  */
 
 const getApiBaseUrl = () => {
-  const envUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL;
+  let envUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL;
 
   if (envUrl) {
-    return envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
+    envUrl = envUrl.trim();
+    if (envUrl.endsWith('/')) {
+      envUrl = envUrl.slice(0, -1);
+    }
+    // Automatically append '/api' if not present (since backend routes are mounted under '/api')
+    if (envUrl && !envUrl.endsWith('/api') && envUrl !== '/api') {
+      envUrl = `${envUrl}/api`;
+    }
+    return envUrl;
   }
 
   return '/api';

@@ -24,22 +24,37 @@ export const getOrders = async (req, res) => {
         const orderObj = order.toObject();
         const enrichedItems = await Promise.all(
           (orderObj.orderItems || []).map(async (item) => {
-            if (item.fabric && item.color) return item;
             try {
               const product = await Product.findById(item.product).lean();
               if (!product || !product.variants?.length) return item;
+              
               // Try to match variant by stored variant string or ID
               const variantKey = item.variant || '';
-              const matchedVariant = product.variants.find((v) =>
-                String(v._id) === String(variantKey) ||
-                String(v.color || '').toLowerCase() === String(variantKey).toLowerCase() ||
-                String(v.fabric || '').toLowerCase() === String(variantKey).toLowerCase()
-              );
+              let matchedVariant = null;
+              if (variantKey) {
+                matchedVariant = product.variants.find((v) =>
+                  String(v._id) === String(variantKey) ||
+                  String(v.color || '').toLowerCase() === String(variantKey).toLowerCase() ||
+                  String(v.fabric || '').toLowerCase() === String(variantKey).toLowerCase()
+                );
+              }
+              // Fallback: match by price if not matched yet
+              if (!matchedVariant && item.price) {
+                matchedVariant = product.variants.find(v => Number(v.price) === Number(item.price));
+              }
+
+              // Filter product variants to only show the matched one, avoiding frontend mismatch
+              if (matchedVariant && product.variants) {
+                product.variants = [matchedVariant];
+              }
+
               return {
                 ...item,
+                product, // override populated product with the filtered one
                 fabric: item.fabric || matchedVariant?.fabric || "",
                 color: item.color || matchedVariant?.color || "",
                 variant: item.variant || (matchedVariant ? `${matchedVariant.color} - ${matchedVariant.fabric}` : ""),
+                selectedVariant: matchedVariant || null // Ensure frontend gets it directly if needed
               };
             } catch {
               return item;

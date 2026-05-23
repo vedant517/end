@@ -36,7 +36,6 @@ export const authApi = createApi({
             setCredentials({
               role: user.role || 'user',
               userId: user.id,
-              token: data?.token || user.token,
               user,
               isCustomer: true,
             })

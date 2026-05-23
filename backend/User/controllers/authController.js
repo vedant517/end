@@ -97,7 +97,6 @@ export const verifyOTP = async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Login successful",
-      token,
       user: userPayload,
     });
   } catch (err) {
@@ -115,7 +114,7 @@ export const getCurrentUser = async (req, res) => {
     }
     res.json({
       success: true,
-      user: formatAuthUser(user, null),
+      user: formatAuthUser(user),
     });
   } catch (err) {
     console.error("Get current user error:", err);
@@ -176,7 +175,7 @@ export const registerUser = async (req, res) => {
     res.status(201).json({
       success: true,
       message: "Account created. Please verify with OTP.",
-      user: formatAuthUser(user, null),
+      user: formatAuthUser(user),
     });
   } catch (err) {
     console.error("Registration Error:", err);

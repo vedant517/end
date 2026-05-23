@@ -107,7 +107,11 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
 
   const derivedItemsTotal = itemsTotal > 0
     ? itemsTotal
-    : (order.orderItems || []).reduce((sum, item) => sum + (Number(item.price) * Number(item.qty || item.quantity || 1)), 0);
+    : (order.orderItems || []).reduce((sum, item) => {
+      const finalPrice = Number(item.price) || Number(item.product?.discountPrice) || Number(item.product?.price) || 0;
+      const qty = Number(item.qty || item.quantity || 1);
+      return sum + finalPrice * qty;
+    }, 0);
 
   const statusColors = {
     Delivered: 'bg-amber-100 text-[#85754E]',
@@ -156,7 +160,7 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
 
           {/* Order Meta */}
           <div className="grid grid-cols-2 gap-4 mb-4">
-            <InfoRow label="User ID" value={order.userId || order.user} />
+            <InfoRow label="Customer" value={order.shippingAddress?.fullName || `${order.shippingAddress?.firstName || ''} ${order.shippingAddress?.lastName || ''}`.trim() || order.shippingAddress?.name || order.userId || order.user} />
             <InfoRow label="Order Date" value={order.date || (order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : 'N/A')} />
             <InfoRow label="Payment Status" value={order.payment || 'Unpaid'} valueColor={order.payment === 'Paid' ? 'text-[#85754E]' : 'text-orange-500'} />
             <InfoRow label="Payment Method" value={order.paymentMethod || 'COD'} />
@@ -170,10 +174,11 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
             </div>
             <div className="flex flex-col gap-1">
               {[
-                ['Name', order.shippingAddress?.fullName],
+                ['Name', order.shippingAddress?.fullName || `${order.shippingAddress?.firstName || ''} ${order.shippingAddress?.lastName || ''}`.trim() || order.shippingAddress?.name || 'Customer'],
+                ['Phone', order.shippingAddress?.phone || order.shippingAddress?.phoneNumber || order.phone || order.phoneNumber || 'N/A'],
                 ['Address', order.shippingAddress?.address],
                 ['City', order.shippingAddress?.city],
-                ['Postal Code', order.shippingAddress?.postalCode],
+                ['Postal Code', order.shippingAddress?.postalCode || order.shippingAddress?.zipCode],
                 ['Country', order.shippingAddress?.country],
               ].map(([label, val]) => (
                 <div key={label} className="flex gap-1.5 text-xs">
@@ -194,8 +199,8 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
             </div>
             <div className="flex flex-col gap-2.5 max-h-[180px] overflow-y-auto">
               {order.orderItems?.length > 0 ? order.orderItems.map((item, idx) => {
-                const qty   = Number(item.qty || item.quantity || 1);
-                const price = Number(item.price) || 0;
+                const qty = Number(item.qty || item.quantity || 1);
+                const finalPrice = Number(item.price) || Number(item.product?.discountPrice) || Number(item.product?.price) || 0;
                 return (
                   <div key={idx} className={`flex items-center gap-3 ${idx < order.orderItems.length - 1 ? 'pb-2.5 border-b border-slate-200' : ''}`}>
                     <div className="w-11 h-11 shrink-0 rounded-xl overflow-hidden bg-slate-200 border border-slate-200">
@@ -214,14 +219,16 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[13px] font-bold text-slate-800 m-0 mb-0.5 overflow-hidden text-ellipsis whitespace-nowrap">{item.name}</p>
-                      {(item.fabric || item.color) && (
+                      {(item.fabric || item.color) ? (
                         <p className="text-[10px] text-[#85754E] m-0 mb-0.5 font-semibold">
                           {[item.color, item.fabric].filter(Boolean).join(' · ')}
                         </p>
-                      )}
-                      <p className="text-[11px] text-slate-500 m-0 font-medium">Qty: {qty} × {formatINR(price)}</p>
+                      ) : item.variant ? (
+                        <p className="text-[10px] text-[#85754E] m-0 mb-0.5 font-semibold">{item.variant}</p>
+                      ) : null}
+                      <p className="text-[11px] text-slate-500 m-0 font-medium">Qty: {qty} × {formatINR(finalPrice)}</p>
                     </div>
-                    <span className="text-[13px] font-extrabold text-slate-900 shrink-0">{formatINR(qty * price)}</span>
+                    <span className="text-[13px] font-extrabold text-slate-900 shrink-0">{formatINR(qty * finalPrice)}</span>
                   </div>
                 );
               }) : (
@@ -239,12 +246,14 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
             <div className="flex flex-col gap-2">
               {[
                 { label: 'Items Total', value: derivedItemsTotal },
+                { label: 'Discount', value: Number(order.discountPrice) || 0, isDiscount: true },
+                { label: 'Shipping Cost', value: Number(order.shippingPrice) || 0 },
                 { label: 'Tax (GST)', value: taxAmount },
-              ].map(({ label, value }) => (
+              ].map(({ label, value, isDiscount }) => (
                 <div key={label} className="flex justify-between items-center">
                   <span className="text-xs text-slate-500 font-medium">{label}</span>
-                  <span className={`text-[13px] font-bold ${value > 0 ? 'text-slate-800' : 'text-slate-400'}`}>
-                    {value > 0 ? formatINR(value) : <span className="text-[11px]">—</span>}
+                  <span className={`text-[13px] font-bold ${value > 0 ? (isDiscount ? 'text-green-600' : 'text-slate-800') : 'text-slate-400'}`}>
+                    {value > 0 ? (isDiscount ? `- ${formatINR(value)}` : formatINR(value)) : <span className="text-[11px]">—</span>}
                   </span>
                 </div>
               ))}

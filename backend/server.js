@@ -54,7 +54,9 @@ const isAllowedOrigin = (origin) => {
   const normalizedOrigin = normalizeOrigin(origin);
   return (
     configuredOrigins.includes(normalizedOrigin) ||
-    /^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(normalizedOrigin)
+    /^https:\/\/[a-z0-9-]+\.onrender\.com$/i.test(normalizedOrigin) ||
+    /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(normalizedOrigin) ||
+    /^https:\/\/[a-z0-9-]+\.netlify\.app$/i.test(normalizedOrigin)
   );
 };
 

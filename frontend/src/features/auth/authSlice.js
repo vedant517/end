@@ -1,7 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import {
   clearUserSessionStorage,
-  getStoredAuthToken,
   getStoredUserId,
   setStoredUserSession,
 } from '../../utils/userSession';
@@ -10,7 +9,6 @@ const authSlice = createSlice({
   name: 'auth',
   initialState: {
     userId: getStoredUserId(),
-    token: getStoredAuthToken(),
     user: null,
     isLoggedIn: !!localStorage.getItem('isLoggedIn'),
     role: localStorage.getItem('role') || null,
@@ -21,9 +19,8 @@ const authSlice = createSlice({
   },
   reducers: {
     setCredentials: (state, action) => {
-      const { role, userId, token, user, isAdmin, isCustomer } = action.payload;
+      const { role, userId, user, isAdmin, isCustomer } = action.payload;
       const resolvedUserId = userId || user?.id || user?._id;
-      const resolvedToken = token || user?.token;
 
       if (isAdmin) {
         state.role = role;
@@ -39,12 +36,7 @@ const authSlice = createSlice({
           state.userId = String(resolvedUserId);
           setStoredUserSession({
             userId: state.userId,
-            token: resolvedToken || state.token,
           });
-        }
-        if (resolvedToken) {
-          state.token = resolvedToken;
-          localStorage.setItem('authToken', resolvedToken);
         }
       }
 
@@ -55,7 +47,6 @@ const authSlice = createSlice({
     },
     logout: (state) => {
       state.userId = null;
-      state.token = null;
       state.user = null;
       state.role = null;
       state.isLoggedIn = false;
@@ -67,7 +58,6 @@ const authSlice = createSlice({
     },
     logoutCustomer: (state) => {
       state.userId = null;
-      state.token = null;
       state.user = null;
       state.isCustomerLoggedIn = false;
       state.isAuthenticated = state.isLoggedIn;

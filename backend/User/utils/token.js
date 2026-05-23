@@ -35,11 +35,10 @@ export const clearAuthCookie = (res) => {
   });
 };
 
-export const formatAuthUser = (user, token) => ({
+export const formatAuthUser = (user) => ({
   id: user._id,
   name: user.name,
   phonenum: user.phonenum,
   email: user.email?.includes("@mobile.sheetalya.local") ? null : user.email,
   role: user.role,
-  token,
 });

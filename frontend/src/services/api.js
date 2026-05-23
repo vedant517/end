@@ -1,20 +1,11 @@
 import axios from 'axios';
 import { API_BASE_URL } from './apiConfig';
-import { getStoredAuthToken } from '../utils/userSession';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
   withCredentials: true,
   headers: {},
-});
-
-api.interceptors.request.use((config) => {
-  const token = getStoredAuthToken();
-  if (token && !config.headers.Authorization) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
 });
 
 let isClearingSession = false;
