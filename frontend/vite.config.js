@@ -7,9 +7,15 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom', 'react-redux', '@reduxjs/toolkit'],
-          ui: ['lucide-react', 'recharts', 'framer-motion']
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react') || id.includes('react-dom') || id.includes('react-router-dom') || id.includes('react-redux') || id.includes('@reduxjs/toolkit')) {
+              return 'vendor';
+            }
+            if (id.includes('lucide-react') || id.includes('recharts') || id.includes('framer-motion')) {
+              return 'ui';
+            }
+          }
         }
       }
     },
