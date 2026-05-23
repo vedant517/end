@@ -259,7 +259,12 @@ export const createOrder = async (req, res) => {
 // GET USER ORDERS (with variant details enrichment for old orders)
 export const getUserOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user?.id })
+    const userId = req.user?.id || req.user?._id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized: User ID missing" });
+    }
+
+    const orders = await Order.find({ user: userId })
       .populate("orderItems.product")
       .sort({ createdAt: -1 });
 

@@ -63,9 +63,16 @@ const AddProduct = () => {
             stockStatus: p.stock > 0 ? 'In Stock' : 'Out of Stock',
           });
           const loadedVariants = p.variants || [];
-          setVariants(loadedVariants);
-          setVariantImages(loadedVariants.map(() => null));
-          setVariantPreviews(loadedVariants.map((v) => (v.image || v.images) ? resolveImageUrl(v.image || v.images, p.name) : null));
+          const mappedVariants = loadedVariants.map(v => {
+            let dp = v.discountPercentage || '';
+            if (!dp && v.mrp && v.price && v.mrp > 0) {
+               dp = Math.round(((v.mrp - v.price) / v.mrp) * 100).toString();
+            }
+            return { ...v, discountPercentage: dp };
+          });
+          setVariants(mappedVariants);
+          setVariantImages(mappedVariants.map(() => null));
+          setVariantPreviews(mappedVariants.map((v) => (v.image || v.images) ? resolveImageUrl(v.image || v.images, p.name) : null));
           setIsFeatured(p.isFeatured !== false);
           setIsActive(p.isActive !== false);
           if (p.image || p.images) setPreviews([resolveImageUrl(p.image || p.images, p.name)]);
@@ -129,7 +136,43 @@ const AddProduct = () => {
 
   const handleVariantChange = (index, field, value) => {
     const nv = [...variants];
-    nv[index][field] = value;
+    const variant = { ...nv[index], [field]: value };
+    
+    // Auto-calculate discount or selling price
+    if (field === 'mrp') {
+      const mrpVal = parseFloat(value);
+      if (!isNaN(mrpVal) && mrpVal > 0) {
+        if (variant.discountPercentage !== undefined && variant.discountPercentage !== '') {
+          const discount = parseFloat(variant.discountPercentage);
+          if (!isNaN(discount)) {
+            variant.price = Math.round(mrpVal - (mrpVal * discount / 100)).toString();
+          }
+        } else if (variant.price !== undefined && variant.price !== '') {
+          const price = parseFloat(variant.price);
+          if (!isNaN(price)) {
+            variant.discountPercentage = Math.round(((mrpVal - price) / mrpVal) * 100).toString();
+          }
+        }
+      }
+    } else if (field === 'price') {
+      const priceVal = parseFloat(value);
+      const mrpVal = parseFloat(variant.mrp);
+      if (!isNaN(priceVal) && !isNaN(mrpVal) && mrpVal > 0) {
+        variant.discountPercentage = Math.round(((mrpVal - priceVal) / mrpVal) * 100).toString();
+      } else if (value === '') {
+        variant.discountPercentage = '';
+      }
+    } else if (field === 'discountPercentage') {
+      const discount = parseFloat(value);
+      const mrpVal = parseFloat(variant.mrp);
+      if (!isNaN(discount) && !isNaN(mrpVal) && mrpVal > 0) {
+        variant.price = Math.round(mrpVal - (mrpVal * discount / 100)).toString();
+      } else if (value === '') {
+        variant.price = '';
+      }
+    }
+
+    nv[index] = variant;
     setVariants(nv);
   };
 
@@ -162,7 +205,7 @@ const AddProduct = () => {
   };
 
   const addVariant = () => {
-    setVariants([...variants, { color: '', fabric: '', price: '', mrp: '', stock: '' }]);
+    setVariants([...variants, { color: '', fabric: '', price: '', mrp: '', discountPercentage: '', stock: '' }]);
     setVariantImages([...variantImages, null]);
     setVariantPreviews([...variantPreviews, null]);
   };
@@ -199,6 +242,7 @@ const AddProduct = () => {
       ...variant,
       price: Number(variant.price) || effectiveBasePrice,
       mrp: Number(variant.mrp) || Number(variant.price) || Number(formData.mrp) || effectiveBasePrice,
+      discountPercentage: Number(variant.discountPercentage) || 0,
       stock: Number(variant.stock) || 0,
     }))));
     if (images.length > 0) submissionData.append('image', images[0]);
@@ -340,11 +384,12 @@ const AddProduct = () => {
               <div className="flex flex-col gap-3">
                 {variants.map((variant, idx) => (
                   <div key={idx} className="bg-slate-50 p-4 rounded-xl flex flex-col gap-3">
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_1fr_100px_36px] sm:items-end">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-[1fr_1fr_1fr_100px_100px_36px] sm:items-end">
                       {[
                         { label: 'Fabric', field: 'fabric', type: 'text' },
                         { label: 'MRP', field: 'mrp', type: 'number' },
                         { label: 'Selling Price', field: 'price', type: 'number' },
+                        { label: 'Discount %', field: 'discountPercentage', type: 'number' },
                         { label: 'Stock', field: 'stock', type: 'number' },
                       ].map(({ label, field, type }) => (
                         <div key={field}>
