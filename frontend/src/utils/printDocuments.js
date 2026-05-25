@@ -113,6 +113,38 @@ const getAddressLine = (address = {}) =>
     address.country,
   ].filter(Boolean).join(', ');
 
+const resolveOrderCustomerName = (order = {}) => {
+  const address = order.shippingAddress || {};
+  const nameParts = [
+    address.fullName,
+    address.name,
+    address.customerName,
+    `${address.firstName || ''} ${address.lastName || ''}`.trim(),
+    order.customerName,
+    order.user?.name,
+    order.user,
+    order.name,
+  ].filter(Boolean);
+  return nameParts[0] || '';
+};
+
+const resolveOrderCustomerPhone = (order = {}) => {
+  const address = order.shippingAddress || {};
+  const phoneParts = [
+    address.phone,
+    address.phoneNumber,
+    address.mobile,
+    address.contactNumber,
+    address.customerPhone,
+    order.customerPhone,
+    order.customerPhoneNumber,
+    order.user?.phone,
+    order.phone,
+    order.phoneNumber,
+  ].filter(Boolean);
+  return phoneParts[0] || '';
+};
+
 export const printOrderAddressReceipt = (order) => {
   const orderId = order.orderId || order.id || order._id;
   const address = order.shippingAddress || {};
@@ -124,9 +156,9 @@ export const printOrderAddressReceipt = (order) => {
       <div class="row">
         <div>
           <div class="tiny muted">Ship To</div>
-          <h1 style="margin: 6px 0 8px; font-size: 24px;">${escapeHtml(address.fullName || (address.firstName ? `${address.firstName} ${address.lastName || ''}`.trim() : '') || address.name || 'Customer')}</h1>
+          <h1 style="margin: 6px 0 8px; font-size: 24px;">${escapeHtml(resolveOrderCustomerName(order) || 'Name unavailable')}</h1>
           <p style="margin: 0; line-height: 1.55; font-size: 15px;">${escapeHtml(getAddressLine(address) || 'Address not available')}</p>
-          <p style="margin: 8px 0 0; font-size: 13px;"><strong>Phone:</strong> ${escapeHtml(address.phone || address.phoneNumber || address.mobile || order.phone || 'N/A')}</p>
+          <p style="margin: 8px 0 0; font-size: 13px;"><strong>Phone:</strong> ${escapeHtml(resolveOrderCustomerPhone(order) || 'Not provided')}</p>
         </div>
         <div style="text-align: right;">
           <div class="tiny muted">Order</div>

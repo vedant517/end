@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import Product from "../models/Product.js";
 import Address from "../../models/Address.js";
@@ -55,6 +56,19 @@ const getSelectedVariant = (product, item = {}) => {
 const getProductPrice = (product, item = {}) => {
   const variant = getSelectedVariant(product, item);
   return Number(variant?.price || product?.discountPrice || product?.discounted_price || product?.price || item.price || 0);
+};
+
+const findOrderForUser = async (orderId, userId, { populateItems = false } = {}) => {
+  const query = Order.findOne({ orderId, user: userId });
+  if (populateItems) query.populate('orderItems.product');
+
+  let order = await query;
+  if (!order && mongoose.Types.ObjectId.isValid(orderId)) {
+    const fallbackQuery = Order.findOne({ _id: orderId, user: userId });
+    if (populateItems) fallbackQuery.populate('orderItems.product');
+    order = await fallbackQuery;
+  }
+  return order;
 };
 
 // CREATE ORDER
@@ -204,6 +218,8 @@ export const createOrder = async (req, res) => {
       orderId: "#ORD" + Date.now(),
       orderItems: secureOrderItems,
       shippingAddress,
+      customerName: shippingAddress?.fullName || shippingAddress?.name || `${shippingAddress?.firstName || ''} ${shippingAddress?.lastName || ''}`.trim() || undefined,
+      customerPhone: shippingAddress?.phone || shippingAddress?.phoneNumber || undefined,
       itemsPrice,
       taxPrice,
       shippingPrice,
@@ -317,7 +333,7 @@ export const getUserOrders = async (req, res) => {
 // CANCEL ORDER (USER)
 export const cancelOrder = async (req, res) => {
   try {
-    const order = await Order.findOne({ orderId: req.params.orderId, user: req.user?.id });
+    const order = await findOrderForUser(req.params.orderId, req.user?.id);
 
     if (!order) {
       return res.status(404).json({ message: "Order not found" });
@@ -335,6 +351,7 @@ export const cancelOrder = async (req, res) => {
     }
 
     order.status = "Cancelled";
+    order.cancellationReason = req.body.reason?.trim() || order.cancellationReason || 'Cancelled by user';
     await order.save();
 
     res.json({
@@ -346,13 +363,52 @@ export const cancelOrder = async (req, res) => {
   }
 };
 
+export const getCancelOrderDetails = async (req, res) => {
+  try {
+    const order = await findOrderForUser(req.params.orderId, req.user?.id)
+      .populate('orderItems.product');
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    if (order.status !== 'Cancelled') {
+      return res.status(400).json({ success: false, message: 'Order is not cancelled' });
+    }
+
+    const orderObj = order.toObject();
+    orderObj.orderItems = (orderObj.orderItems || []).map((item) => {
+      const product = item.product;
+      return {
+        ...item,
+        price: Number(item.price) || getProductPrice(product, item),
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        orderId: order.orderId,
+        status: order.status,
+        cancellationReason: order.cancellationReason || null,
+        shippingAddress: order.shippingAddress || {},
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        orderItems: orderObj.orderItems,
+        totalPrice: order.totalPrice,
+        createdAt: order.createdAt,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 // GET SINGLE ORDER (USER)
 export const getOrderById = async (req, res) => {
   try {
-    const order = await Order.findOne({
-      _id: req.params.id,
-      user: req.user.id,
-    }).populate("orderItems.product");
+    const order = await findOrderForUser(req.params.id, req.user.id)
+      .populate("orderItems.product");
 
     if (!order)
       return res.status(404).json({ success: false, message: "Order not found." });
@@ -406,7 +462,7 @@ export const calculateOrder = async (req, res) => {
       });
     }
 
-    // 1. Shipping Calculation (Shiprocket) - REMOVED AS REQUESTED
+    // 1. Shipping Calculation (Shiprocket)
     let shippingPrice = 0;
     let shippingInfo = null;
     /*

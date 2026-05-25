@@ -94,6 +94,38 @@ function InfoRow({ label, value, valueColor }) {
   );
 }
 
+const resolveCustomerName = (order) => {
+  const shipping = order?.shippingAddress || {};
+  const nameParts = [
+    shipping.fullName,
+    shipping.name,
+    shipping.customerName,
+    `${shipping.firstName || ''} ${shipping.lastName || ''}`.trim(),
+    order?.customerName,
+    order?.user?.name,
+    order?.name,
+  ].filter(Boolean);
+  return nameParts[0] || '';
+};
+
+const resolveCustomerPhone = (order) => {
+  const shipping = order?.shippingAddress || {};
+  const phoneParts = [
+    shipping.phone,
+    shipping.phoneNumber,
+    shipping.mobile,
+    shipping.contactNumber,
+    shipping.customerPhone,
+    order?.customerPhone,
+    order?.customerPhoneNumber,
+    order?.user?.phone,
+    order?.user?.phonenum,
+    order?.phone,
+    order?.phoneNumber,
+  ].filter(Boolean);
+  return phoneParts[0] || '';
+};
+
 /* ── Status Update Modal ── */
 function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
   const [selectedStatus, setSelectedStatus] = useState(order?.status || 'Pending');
@@ -160,7 +192,7 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
 
           {/* Order Meta */}
           <div className="grid grid-cols-2 gap-4 mb-4">
-            <InfoRow label="Customer" value={order.shippingAddress?.fullName || `${order.shippingAddress?.firstName || ''} ${order.shippingAddress?.lastName || ''}`.trim() || order.shippingAddress?.name || order.userId || order.user} />
+            <InfoRow label="Customer" value={order.shippingAddress?.fullName || `${order.shippingAddress?.firstName || ''} ${order.shippingAddress?.lastName || ''}`.trim() || order.shippingAddress?.name || (typeof order.userId === 'object' ? order.userId?.name : null) || (typeof order.user === 'object' ? order.user?.name : null) || order.userId || order.user} />
             <InfoRow label="Order Date" value={order.date || (order.createdAt ? new Date(order.createdAt).toLocaleDateString('en-IN') : 'N/A')} />
             <InfoRow label="Payment Status" value={order.payment || 'Unpaid'} valueColor={order.payment === 'Paid' ? 'text-[#85754E]' : 'text-orange-500'} />
             <InfoRow label="Payment Method" value={order.paymentMethod || 'COD'} />
@@ -174,8 +206,8 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
             </div>
             <div className="flex flex-col gap-1">
               {[
-                ['Name', order.shippingAddress?.fullName || `${order.shippingAddress?.firstName || ''} ${order.shippingAddress?.lastName || ''}`.trim() || order.shippingAddress?.name || 'Customer'],
-                ['Phone', order.shippingAddress?.phone || order.shippingAddress?.phoneNumber || order.phone || order.phoneNumber || 'N/A'],
+                ['Name', order.shippingAddress?.fullName || `${order.shippingAddress?.firstName || ''} ${order.shippingAddress?.lastName || ''}`.trim() || order.shippingAddress?.name || (typeof order.userId === 'object' ? order.userId?.name : null) || (typeof order.user === 'object' ? order.user?.name : null) || 'Customer'],
+                ['Phone', order.shippingAddress?.phone || order.shippingAddress?.phoneNumber || (typeof order.userId === 'object' ? order.userId?.phonenum || order.userId?.phone : null) || (typeof order.user === 'object' ? order.user?.phonenum || order.user?.phone : null) || order.phone || order.phoneNumber || 'N/A'],
                 ['Address', order.shippingAddress?.address],
                 ['City', order.shippingAddress?.city],
                 ['Postal Code', order.shippingAddress?.postalCode || order.shippingAddress?.zipCode],
@@ -188,6 +220,12 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
               ))}
             </div>
           </div>
+          {order.status === 'Cancelled' && order.cancellationReason && (
+            <div className="bg-rose-50 rounded-2xl p-4 mb-4 border border-rose-100 text-rose-700">
+              <div className="text-[10px] font-extrabold uppercase tracking-[0.1em] mb-2">Cancellation Reason</div>
+              <div className="text-[13px] font-semibold">{order.cancellationReason}</div>
+            </div>
+          )}
 
           {/* Purchased Items */}
           <div className="bg-slate-50 rounded-2xl p-4 mb-4 border border-slate-100">
@@ -278,6 +316,15 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
               {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
             </select>
           </div>
+
+          {order.status === 'Cancelled' && order.cancellationReason && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-100 rounded-xl">
+              <label className="text-[10px] font-extrabold text-red-400 uppercase tracking-[0.1em] block mb-1">
+                Cancellation Reason
+              </label>
+              <p className="text-xs text-red-700 font-medium m-0">{order.cancellationReason}</p>
+            </div>
+          )}
         </div>
 
         {/* Footer Actions */}
@@ -401,6 +448,7 @@ export default function OrderManagement() {
         createdAt: order.createdAt,
         shippingAddress: order.shippingAddress || {},
         orderItems: order.orderItems || [],
+        cancellationReason: order.cancellationReason,
       };
     }) || [],
     [ordersResponse, statusOverrides]);

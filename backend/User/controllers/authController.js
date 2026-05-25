@@ -1,5 +1,5 @@
 import User from "../../models/User.js";
-import { parseIdentifier, findUserByIdentifier, ensureUserExists } from "../utils/identifier.js";
+import { parseIdentifier, findUserByIdentifier } from "../utils/identifier.js";
 import { generateEmailOtp, MOBILE_STATIC_OTP } from "../utils/otp.js";
 import { saveOtp, verifyStoredOtp, OTP_EXPIRY_MS } from "../utils/otpStore.js";
 import { sendOtpEmail } from "../utils/emailService.js";
@@ -18,7 +18,15 @@ export const sendOTP = async (req, res) => {
       return res.status(400).json({ success: false, message: identifier.error });
     }
 
-    if (identifier.type === "mobile") {
+    const existingUser = await findUserByIdentifier(User, identifier);
+  if (!existingUser) {
+    return res.status(404).json({
+      success: false,
+      message: "Account not found. Please register first before trying to login.",
+    });
+  }
+
+  if (identifier.type === "mobile") {
       saveOtp(identifier.key, { otp: MOBILE_STATIC_OTP, type: "mobile" });
       return res.status(200).json({
         success: true,
@@ -88,7 +96,14 @@ export const verifyOTP = async (req, res) => {
       }
     }
 
-    const user = await ensureUserExists(User, identifier, req.body?.name);
+    const user = await findUserByIdentifier(User, identifier);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Account not found. Please register first before trying to login.",
+      });
+    }
+
     const token = signAuthToken(user);
     setAuthCookie(res, token);
 

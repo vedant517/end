@@ -2,7 +2,8 @@ import express from "express";
 import { 
   getOrders, 
   updateOrder, 
-  getOrderStats 
+  getOrderStats,
+  getOrderCancellationDetails,
 } from "../controllers/orderController.js";
 import { createOrder, getUserOrders, cancelOrder } from "../../User/controllers/orderController.js";
 import { protect, authorize } from "../middleware/authMiddleware.js";
@@ -15,7 +16,8 @@ router.route("/")
   .post(protect, createOrder);
 
 router.get("/my-orders", protect, getUserOrders);
-router.post("/cancel/:orderId", protect, cancelOrder);
+router.post("/cancel/:orderId", protect, authorize('admin'), cancelOrder);
+router.get("/:orderId/cancellation", protect, authorize('admin'), getOrderCancellationDetails);
 
 router.get("/stats", protect, authorize('admin'), getOrderStats);
 

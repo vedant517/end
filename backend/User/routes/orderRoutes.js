@@ -5,6 +5,7 @@ import {
   getUserOrders, 
   cancelOrder,
   getOrderById,
+  getCancelOrderDetails,
   calculateOrder
 } from "../controllers/orderController.js";
 
@@ -13,7 +14,8 @@ const router = express.Router();
 router.post("/calculate", calculateOrder);
 router.post("/", userProtect, createOrder);
 router.get("/my-orders", userProtect, getUserOrders);
-router.get("/:id", userProtect, getOrderById);
+router.get("/cancel/:orderId", userProtect, getCancelOrderDetails);
 router.post("/cancel/:orderId", userProtect, cancelOrder);
+router.get("/:id", userProtect, getOrderById);
 
 export default router;

@@ -16,7 +16,9 @@ export const getOrders = async (req, res) => {
       query.user = req.user.id;
     }
 
-    const orders = await Order.find(query).sort({ createdAt: -1 });
+    const orders = await Order.find(query)
+      .sort({ createdAt: -1 })
+      .populate('user', 'name phone phonenum');
 
     // Enrich order items with variant details (fabric, color) for old orders
     const enrichedOrders = await Promise.all(
@@ -74,6 +76,33 @@ export const getOrders = async (req, res) => {
   }
 };
 
+export const getOrderCancellationDetails = async (req, res) => {
+  try {
+    let order = await Order.findOne({ orderId: req.params.orderId }).populate('user', 'name phone phonenum');
+    if (!order) {
+      order = await Order.findById(req.params.orderId).populate('user', 'name phone phonenum');
+    }
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        orderId: order.orderId || order._id,
+        status: order.status,
+        cancellationReason: order.cancellationReason || null,
+        shippingAddress: order.shippingAddress || {},
+        user: order.user || null,
+        createdAt: order.createdAt,
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // UPDATE ORDER STATUS
 export const updateOrder = async (req, res) => {
   try {
@@ -110,6 +139,11 @@ export const updateOrder = async (req, res) => {
     if (status === "Delivered") {
       req.body.isDelivered = true;
       req.body.deliveredAt = Date.now();
+    }
+
+    // Preserve cancellation reason when the admin cancels the order
+    if (status === "Cancelled") {
+      req.body.cancellationReason = req.body.cancellationReason || order.cancellationReason || 'Cancelled by admin';
     }
 
     // Update the order

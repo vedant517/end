@@ -27,11 +27,20 @@ const orderSchema = new mongoose.Schema({
     },
   ],
   shippingAddress: {
+    fullName: { type: String },
+    firstName: { type: String },
+    lastName: { type: String },
+    email: { type: String },
+    phone: { type: String },
     address: { type: String },
     city: { type: String },
+    state: { type: String },
     postalCode: { type: String },
     country: { type: String },
   },
+  customerName: { type: String },
+  customerPhone: { type: String },
+  cancellationReason: { type: String },
   paymentMethod: {
     type: String,
     default: 'Razorpay'

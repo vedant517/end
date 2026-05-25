@@ -73,16 +73,20 @@ export const orderApi = createApi({
           : [{ type: 'Order', id: 'LIST' }],
     }),
       cancelOrder: builder.mutation({
-        query: (orderId) => ({
-          url: `/orders/cancel/${orderId}`,
-        method: 'POST',
+        query: (params) => {
+          const { orderId, reason } = typeof params === 'string' ? { orderId: params, reason: undefined } : params || {};
+          return {
+            url: `/orders/cancel/${orderId}`,
+            method: 'POST',
+            body: { reason },
+          };
+        },
+        invalidatesTags: (result, error, { orderId }) => [
+          { type: 'Order', id: orderId },
+          { type: 'Order', id: 'LIST' },
+          'OrderStats',
+        ],
       }),
-      invalidatesTags: (result, error, orderId) => [
-        { type: 'Order', id: orderId },
-        { type: 'Order', id: 'LIST' },
-        'OrderStats',
-      ],
-    }),
   }),
 });
 
