@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
 import { Mail, Smartphone, Loader2, ArrowLeft } from 'lucide-react';
 import {
   useSendOtpMutation,
   useVerifyOtpMutation,
 } from '../../features/auth/authApi';
+import { setCredentials } from '../../features/auth/authSlice';
 import { detectIdentifierType } from '../../utils/detectIdentifier';
 
 const RESEND_SECONDS = 60;
@@ -55,6 +57,8 @@ export default function AuthLogin() {
     }
   }, [identifier, sendOtp]);
 
+  const dispatch = useDispatch();
+
   const handleVerify = async (e) => {
     e.preventDefault();
     setError('');
@@ -72,10 +76,19 @@ export default function AuthLogin() {
     }
 
     try {
-      await verifyOtp({
+      const result = await verifyOtp({
         identifier: detected.value,
         otp: otp.trim(),
       }).unwrap();
+
+      dispatch(
+        setCredentials({
+          userId: result.user?.id || result.user?._id,
+          user: result.user,
+          isCustomer: true,
+        })
+      );
+
       setSuccess('Login successful! Redirecting...');
       setTimeout(() => navigate('/shop'), 800);
     } catch (err) {

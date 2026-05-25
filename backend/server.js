@@ -41,9 +41,15 @@ const configuredOrigins = [
   process.env.FRONTEND_URL,
   process.env.CORS_ORIGINS,
   process.env.RENDER_EXTERNAL_URL,
-  "https://adminsaree-8.onrender.com",
+  "https://end-5-rtag.onrender.com",
+  "https://sheetalya.com",
+  "http://sheetalya.com",
+  "http://localhost",
+  "https://localhost",
   "http://localhost:5173",
-  "http://127.0.0.1:5173"
+  "http://127.0.0.1:5173",
+  "http://localhost:3000",
+  "http://127.0.0.1:3000"
 ]
   .flatMap((value) => (value || "").split(","))
   .map(normalizeOrigin)
