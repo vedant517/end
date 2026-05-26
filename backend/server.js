@@ -44,6 +44,8 @@ const configuredOrigins = [
   "https://end-5-rtag.onrender.com",
   "https://sheetalya.com",
   "http://sheetalya.com",
+  "https://admin.sheetalya.com",
+  "http://admin.sheetalya.com",
   "http://localhost",
   "https://localhost",
   "http://localhost:5173",

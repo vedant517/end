@@ -58,6 +58,11 @@ const getProductPrice = (product, item = {}) => {
   return Number(variant?.price || product?.discountPrice || product?.discounted_price || product?.price || item.price || 0);
 };
 
+const getProductMrp = (product, item = {}) => {
+  const variant = getSelectedVariant(product, item);
+  return Number(variant?.mrp || product?.mrp || variant?.price || product?.price || item.price || 0);
+};
+
 const findOrderForUser = async (orderId, userId, { populateItems = false } = {}) => {
   const query = Order.findOne({ orderId, user: userId });
   if (populateItems) query.populate('orderItems.product');
@@ -99,10 +104,21 @@ export const createOrder = async (req, res) => {
       try {
         const addressDoc = await Address.findById(shippingAddress);
         if (addressDoc) {
-          shippingAddress = addressDoc.toObject();
+          shippingAddress = {
+            fullName: addressDoc.fullName || addressDoc.name,
+            firstName: addressDoc.firstName,
+            lastName: addressDoc.lastName,
+            email: addressDoc.email,
+            phone: addressDoc.phone || addressDoc.phoneNumber,
+            address: addressDoc.address || addressDoc.streetAddress,
+            city: addressDoc.city,
+            state: addressDoc.state,
+            postalCode: addressDoc.postalCode || addressDoc.zipCode,
+            country: addressDoc.country
+          };
         }
       } catch (err) {
-        console.error("Error fetching shipping address by ID:", err);
+        console.warn("Failed to fetch shipping address by ID:", err.message);
       }
     }
     
@@ -135,17 +151,16 @@ export const createOrder = async (req, res) => {
       };
     }
 
-    // Calculate items price securely and GST
-    let calculatedItemsPrice = 0;
+    // Calculate items price    // Process items securely by fetching latest prices from database
+    let calculatedSellingPriceTotal = 0;
+    let calculatedMrpTotal = 0;
     let totalWeight = 0;
-    
-    // We recreate orderItems with secure prices from the DB
     const secureOrderItems = [];
 
     for (const item of orderItems) {
-      const productId = item.product || item.productId || item._id;
-      const quantity = parseInt(item.qty || item.quantity || 1);
-
+      const productId = item.product || item.id || item._id;
+      const quantity = Number(item.qty || item.quantity || 1);
+      
       if (!productId) {
         console.warn("Skipping item without product ID:", item);
         continue;
@@ -153,13 +168,14 @@ export const createOrder = async (req, res) => {
 
       const product = await Product.findById(productId);
       const priceToUse = product ? getProductPrice(product, item) : (item.price || 0);
+      const mrpToUse = product ? getProductMrp(product, item) : (item.mrp || item.price || 0);
       const matchedVariant = product ? getSelectedVariant(product, item) : null;
       
       secureOrderItems.push({
         ...item,
         product: productId,
         qty: quantity,
-        price: priceToUse,
+        price: mrpToUse, // Store MRP as price so the frontend Order details shows original price
         name: product ? product.name : (item.name || "Unknown Product"),
         image: product ? getProductImage(product, item.image || "") : (item.image || ""),
         variant: matchedVariant ? `${matchedVariant.color} - ${matchedVariant.fabric}` : (item.variant || ""),
@@ -167,7 +183,8 @@ export const createOrder = async (req, res) => {
         color: matchedVariant?.color || item.color || "",
       });
       
-      calculatedItemsPrice += (priceToUse * quantity);
+      calculatedSellingPriceTotal += (priceToUse * quantity);
+      calculatedMrpTotal += (mrpToUse * quantity);
       totalWeight += (0.5 * quantity); // Mock weight
       
       if (product) {
@@ -177,14 +194,15 @@ export const createOrder = async (req, res) => {
       }
     }
 
-    const itemsPrice = calculatedItemsPrice;
+    const itemsPrice = calculatedMrpTotal;
+    const mrpDiscount = calculatedMrpTotal - calculatedSellingPriceTotal;
 
     // 3. Discount Calculation
-    let discountPrice = 0;
+    let discountPrice = mrpDiscount;
     if (couponCode) {
       try {
-        const discResult = await calculateDiscount(couponCode, itemsPrice, req.user?.id);
-        discountPrice = discResult.discountAmount;
+        const discResult = await calculateDiscount(couponCode, calculatedSellingPriceTotal, req.user?.id);
+        discountPrice += discResult.discountAmount;
       } catch (err) {
         console.warn("Coupon validation failed during checkout:", err.message);
       }
@@ -317,7 +335,18 @@ export const getUserOrders = async (req, res) => {
             }
           })
         );
-        return { ...orderObj, orderItems: enrichedItems };
+
+        const rawDiscountPrice = Number(orderObj.discountPrice || orderObj.discount || 0) || 0;
+        const fallbackDiscountPrice = Math.max(
+          0,
+          (Number(orderObj.itemsPrice) || 0) - ((Number(orderObj.totalPrice) || 0) - (Number(orderObj.taxPrice) || 0) - (Number(orderObj.shippingPrice) || 0))
+        );
+
+        return {
+          ...orderObj,
+          orderItems: enrichedItems,
+          discountPrice: rawDiscountPrice || fallbackDiscountPrice,
+        };
       })
     );
 

@@ -5,21 +5,19 @@ import ProductMedia from './pages/admin/productMedia';
 import AdminProfile from './pages/admin/adminprofile';
 import Coupons from'./pages/admin/Coupons';   
 
-// Lazy load components
-const Dashboard = lazy(() => import('./pages/admin/Dashboard'));
-const Login = lazy(() => import('./pages/admin/Login'));
-const AddProduct = lazy(() => import('./pages/admin/AddProduct'));
-
-const Products = lazy(() => import('./pages/admin/Products'));
-const Order = lazy(() => import('./pages/admin/Order'));
-const Transactions = lazy(() => import('./pages/admin/Transactions'));
-const Customers = lazy(() => import('./pages/admin/Customers'));
-const ProductReviews = lazy(() => import('./pages/admin/ProductReviews'));
-const Categories = lazy(() => import('./pages/admin/Categories'));
-const Enquiries = lazy(() => import('./pages/admin/Enquiries'));
-const ProductReviewPage = lazy(() => import('./pages/user/ProductReviewPage'));
-const AuthLogin = lazy(() => import('./pages/user/AuthLogin'));
-const Shop = lazy(() => import('./pages/user/Shop'));
+import Dashboard from './pages/admin/Dashboard';
+import Login from './pages/admin/Login';
+import AddProduct from './pages/admin/AddProduct';
+import Products from './pages/admin/Products';
+import Order from './pages/admin/Order';
+import Transactions from './pages/admin/Transactions';
+import Customers from './pages/admin/Customers';
+import ProductReviews from './pages/admin/ProductReviews';
+import Categories from './pages/admin/Categories';
+import Enquiries from './pages/admin/Enquiries';
+import ProductReviewPage from './pages/user/ProductReviewPage';
+import AuthLogin from './pages/user/AuthLogin';
+import Shop from './pages/user/Shop';
 
 const LoadingSpinner = () => (
   <div className="flex-1 flex items-center justify-center min-h-[400px]">

@@ -136,14 +136,29 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
   const shippingCost = Number(order.shippingPrice) || 0;
   const taxAmount    = Number(order.taxPrice)      || 0;
   const grandTotal   = Number(order.totalPrice || order.price) || 0;
+  const storedDiscount = Number(order.discountPrice || order.discount || 0) || 0;
 
-  const derivedItemsTotal = itemsTotal > 0
-    ? itemsTotal
-    : (order.orderItems || []).reduce((sum, item) => {
-      const finalPrice = Number(item.price) || Number(item.product?.discountPrice) || Number(item.product?.price) || 0;
-      const qty = Number(item.qty || item.quantity || 1);
-      return sum + finalPrice * qty;
-    }, 0);
+  const derivedMrpTotal = (order.orderItems || []).reduce((sum, item) => {
+    const sv = item.selectedVariant;
+    const mrp = Number(sv?.mrp) || Number(item.product?.mrp) || Number(item.price) || 0;
+    const qty = Number(item.qty || item.quantity || 1);
+    return sum + mrp * qty;
+  }, 0) || itemsTotal;
+
+  const derivedSellingTotal = (order.orderItems || []).reduce((sum, item) => {
+    const sv = item.selectedVariant;
+    const price = Number(sv?.price) || Number(item.product?.price) || Number(item.price) || 0;
+    const qty = Number(item.qty || item.quantity || 1);
+    return sum + price * qty;
+  }, 0) || itemsTotal;
+
+  // Use the larger of derived MRP total or itemsTotal (since old orders had itemsTotal as selling price)
+  const finalMrpTotal = Math.max(itemsTotal, derivedMrpTotal);
+  
+  // Calculate discount by comparing MRP total vs Selling total (or from grand total if needed)
+  const derivedDiscount = storedDiscount > 0
+    ? storedDiscount
+    : Math.max(0, finalMrpTotal - (grandTotal - taxAmount - shippingCost));
 
   const statusColors = {
     Delivered: 'bg-amber-100 text-[#85754E]',
@@ -238,7 +253,10 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
             <div className="flex flex-col gap-2.5 max-h-[180px] overflow-y-auto">
               {order.orderItems?.length > 0 ? order.orderItems.map((item, idx) => {
                 const qty = Number(item.qty || item.quantity || 1);
-                const finalPrice = Number(item.price) || Number(item.product?.discountPrice) || Number(item.product?.price) || 0;
+                // Use selectedVariant (from backend enrichment) for accurate selling price
+                const sv = item.selectedVariant;
+                const finalPrice = Number(sv?.price) || Number(item.product?.price) || Number(item.price) || 0;
+                
                 return (
                   <div key={idx} className={`flex items-center gap-3 ${idx < order.orderItems.length - 1 ? 'pb-2.5 border-b border-slate-200' : ''}`}>
                     <div className="w-11 h-11 shrink-0 rounded-xl overflow-hidden bg-slate-200 border border-slate-200">
@@ -283,8 +301,8 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
             </div>
             <div className="flex flex-col gap-2">
               {[
-                { label: 'Items Total', value: derivedItemsTotal },
-                { label: 'Discount', value: Number(order.discountPrice) || 0, isDiscount: true },
+                { label: 'Items Total (MRP)', value: finalMrpTotal },
+                { label: 'Discount', value: derivedDiscount, isDiscount: true },
                 { label: 'Shipping Cost', value: Number(order.shippingPrice) || 0 },
                 { label: 'Tax (GST)', value: taxAmount },
               ].map(({ label, value, isDiscount }) => (
@@ -440,6 +458,7 @@ export default function OrderManagement() {
         itemsPrice: order.itemsPrice || 0,
         shippingPrice: order.shippingPrice || 0,
         taxPrice: order.taxPrice || 0,
+        discountPrice: order.discountPrice || 0,
         totalPrice: order.totalPrice || order.price || 0,
         payment: order.isPaid ? 'Paid' : 'Unpaid',
         paymentMethod: order.paymentMethod || 'COD',

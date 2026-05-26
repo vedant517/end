@@ -86,6 +86,11 @@ const AddProduct = () => {
     const p = getEffectiveBasePrice();
     const d = parseFloat(formData.discountPrice) || 0;
     setSaleResult(p - d);
+
+    if (variants.length > 0) {
+      const totalVariantStock = variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+      setFormData((prev) => ({ ...prev, stockQuantity: totalVariantStock.toString() }));
+    }
   }, [formData.price, formData.discountPrice, variants]);
 
   const getVariantPrices = () =>
@@ -563,11 +568,14 @@ const AddProduct = () => {
               <div>
                 <label className={labelCls}>Stock Quantity</label>
                 <input
-                  type="number" name="stockQuantity" disabled={isUnlimited}
+                  type="number" name="stockQuantity" disabled={isUnlimited || variants.length > 0}
                   value={isUnlimited ? '' : formData.stockQuantity}
                   onChange={handleInputChange} placeholder={isUnlimited ? 'Unlimited' : '0'}
-                  className={`${inputCls} ${isUnlimited ? 'opacity-50' : ''}`}
+                  className={`${inputCls} ${isUnlimited || variants.length > 0 ? 'opacity-50 cursor-not-allowed bg-slate-50' : ''}`}
                 />
+                {variants.length > 0 && (
+                  <p className="text-[10px] text-slate-400 mt-1">Auto-calculated from variants</p>
+                )}
               </div>
               <div>
                 <label className={labelCls}>Stock Status</label>

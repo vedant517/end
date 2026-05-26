@@ -227,10 +227,14 @@ export const verifyPayment = async (req, res) => {
     }
 
     if (isValidSignature) {
-      if (orderId) {
-        let dbOrderId = orderId;
-        if (!mongoose.Types.ObjectId.isValid(orderId)) {
-          const dbOrder = await Order.findOne({ orderId: orderId });
+      // Find transaction first to fallback orderId if frontend missed it
+      const transaction = await Transaction.findOne({ razorpayOrderId: razorpay_order_id });
+      
+      let dbOrderId = orderId || (transaction ? transaction.order : null);
+
+      if (dbOrderId) {
+        if (!mongoose.Types.ObjectId.isValid(dbOrderId)) {
+          const dbOrder = await Order.findOne({ orderId: dbOrderId });
           if (dbOrder) dbOrderId = dbOrder._id;
         }
         
@@ -246,7 +250,6 @@ export const verifyPayment = async (req, res) => {
         console.log("Order updated:", updateResult?._id);
       }
 
-      const transaction = await Transaction.findOne({ razorpayOrderId: razorpay_order_id });
       if (transaction) {
         transaction.razorpayPaymentId = razorpay_payment_id;
         transaction.razorpaySignature = razorpay_signature;

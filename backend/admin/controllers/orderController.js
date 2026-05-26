@@ -30,19 +30,32 @@ export const getOrders = async (req, res) => {
               const product = await Product.findById(item.product).lean();
               if (!product || !product.variants?.length) return item;
               
-              // Try to match variant by stored variant string or ID
+              // Try to match variant by color+fabric (most reliable), then variant key, then price
               const variantKey = item.variant || '';
               let matchedVariant = null;
-              if (variantKey) {
+              
+              // 1. Match by stored color + fabric (most reliable for enriched orders)
+              if (item.color || item.fabric) {
+                matchedVariant = product.variants.find((v) => {
+                  const colorMatch = !item.color || String(v.color || '').toLowerCase() === String(item.color).toLowerCase();
+                  const fabricMatch = !item.fabric || String(v.fabric || '').toLowerCase() === String(item.fabric).toLowerCase();
+                  return colorMatch && fabricMatch;
+                });
+              }
+              
+              // 2. Fallback: match by variant key string
+              if (!matchedVariant && variantKey) {
                 matchedVariant = product.variants.find((v) =>
                   String(v._id) === String(variantKey) ||
                   String(v.color || '').toLowerCase() === String(variantKey).toLowerCase() ||
                   String(v.fabric || '').toLowerCase() === String(variantKey).toLowerCase()
                 );
               }
-              // Fallback: match by price if not matched yet
+              // 3. Fallback: match by price or MRP
               if (!matchedVariant && item.price) {
-                matchedVariant = product.variants.find(v => Number(v.price) === Number(item.price));
+                matchedVariant = product.variants.find(v => 
+                  Number(v.price) === Number(item.price) || Number(v.mrp) === Number(item.price)
+                );
               }
 
               // Filter product variants to only show the matched one, avoiding frontend mismatch
@@ -63,7 +76,18 @@ export const getOrders = async (req, res) => {
             }
           })
         );
-        return { ...orderObj, orderItems: enrichedItems };
+
+        const rawDiscountPrice = Number(orderObj.discountPrice || orderObj.discount || 0) || 0;
+        const fallbackDiscountPrice = Math.max(
+          0,
+          (Number(orderObj.itemsPrice) || 0) - ((Number(orderObj.totalPrice) || 0) - (Number(orderObj.taxPrice) || 0) - (Number(orderObj.shippingPrice) || 0))
+        );
+
+        return {
+          ...orderObj,
+          orderItems: enrichedItems,
+          discountPrice: rawDiscountPrice || fallbackDiscountPrice,
+        };
       })
     );
 
