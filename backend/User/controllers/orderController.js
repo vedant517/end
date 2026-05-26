@@ -300,55 +300,51 @@ export const getUserOrders = async (req, res) => {
 
     const orders = await Order.find({ user: userId })
       .populate("orderItems.product")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     // Enrich order items with variant details from the product (for old orders missing fabric/color)
-    const enrichedOrders = await Promise.all(
-      orders.map(async (order) => {
-        const orderObj = order.toObject();
-        const enrichedItems = await Promise.all(
-          (orderObj.orderItems || []).map(async (item) => {
-            try {
-              // product is already populated
-              const product = item.product?._id ? item.product : await Product.findById(item.product).lean();
-              if (!product) return item;
+    const enrichedOrders = orders.map((orderObj) => {
+      const enrichedItems = (orderObj.orderItems || []).map((item) => {
+        try {
+          // product is already populated
+          const product = item.product;
+          if (!product) return item;
 
-              // Try to find the matching variant
-              const matchedVariant = getSelectedVariant(product, item);
-              
-              // Filter product variants to only show the matched one, avoiding frontend mismatch
-              if (matchedVariant && product.variants) {
-                product.variants = [matchedVariant];
-              }
+          // Try to find the matching variant
+          const matchedVariant = getSelectedVariant(product, item);
+          
+          // Filter product variants to only show the matched one, avoiding frontend mismatch
+          if (matchedVariant && product.variants) {
+            product.variants = [matchedVariant];
+          }
 
-              return {
-                ...item,
-                product, // override populated product with the filtered one
-                price: Number(item.price) || getProductPrice(product, item),
-                fabric: item.fabric || matchedVariant?.fabric || "",
-                color: item.color || matchedVariant?.color || "",
-                variant: item.variant || (matchedVariant ? `${matchedVariant.color} - ${matchedVariant.fabric}` : ""),
-                selectedVariant: matchedVariant || null // Ensure frontend gets it directly if needed
-              };
-            } catch {
-              return item;
-            }
-          })
-        );
+          return {
+            ...item,
+            product, // override populated product with the filtered one
+            price: Number(item.price) || getProductPrice(product, item),
+            fabric: item.fabric || matchedVariant?.fabric || "",
+            color: item.color || matchedVariant?.color || "",
+            variant: item.variant || (matchedVariant ? `${matchedVariant.color} - ${matchedVariant.fabric}` : ""),
+            selectedVariant: matchedVariant || null // Ensure frontend gets it directly if needed
+          };
+        } catch {
+          return item;
+        }
+      });
 
-        const rawDiscountPrice = Number(orderObj.discountPrice || orderObj.discount || 0) || 0;
-        const fallbackDiscountPrice = Math.max(
-          0,
-          (Number(orderObj.itemsPrice) || 0) - ((Number(orderObj.totalPrice) || 0) - (Number(orderObj.taxPrice) || 0) - (Number(orderObj.shippingPrice) || 0))
-        );
+      const rawDiscountPrice = Number(orderObj.discountPrice || orderObj.discount || 0) || 0;
+      const fallbackDiscountPrice = Math.max(
+        0,
+        (Number(orderObj.itemsPrice) || 0) - ((Number(orderObj.totalPrice) || 0) - (Number(orderObj.taxPrice) || 0) - (Number(orderObj.shippingPrice) || 0))
+      );
 
-        return {
-          ...orderObj,
-          orderItems: enrichedItems,
-          discountPrice: rawDiscountPrice || fallbackDiscountPrice,
-        };
-      })
-    );
+      return {
+        ...orderObj,
+        orderItems: enrichedItems,
+        discountPrice: rawDiscountPrice || fallbackDiscountPrice,
+      };
+    });
 
     res.json({
       success: true,

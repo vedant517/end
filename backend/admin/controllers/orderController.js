@@ -5,6 +5,7 @@ import User from "../../models/User.js";
 
 // GET ALL ORDERS
 export const getOrders = async (req, res) => {
+  console.time('getOrders');
   try {
     const { status } = req.query;
 
@@ -16,85 +17,87 @@ export const getOrders = async (req, res) => {
       query.user = req.user.id;
     }
 
+    console.time('Order.find');
     const orders = await Order.find(query)
       .sort({ createdAt: -1 })
-      .populate('user', 'name phone phonenum');
+      .populate('user', 'name phone phonenum')
+      .populate({ path: 'orderItems.product', select: 'variants mrp price' })
+      .lean();
+    console.timeEnd('Order.find');
 
+    console.time('enrichOrders');
     // Enrich order items with variant details (fabric, color) for old orders
-    const enrichedOrders = await Promise.all(
-      orders.map(async (order) => {
-        const orderObj = order.toObject();
-        const enrichedItems = await Promise.all(
-          (orderObj.orderItems || []).map(async (item) => {
-            try {
-              const product = await Product.findById(item.product).lean();
-              if (!product || !product.variants?.length) return item;
-              
-              // Try to match variant by color+fabric (most reliable), then variant key, then price
-              const variantKey = item.variant || '';
-              let matchedVariant = null;
-              
-              // 1. Match by stored color + fabric (most reliable for enriched orders)
-              if (item.color || item.fabric) {
-                matchedVariant = product.variants.find((v) => {
-                  const colorMatch = !item.color || String(v.color || '').toLowerCase() === String(item.color).toLowerCase();
-                  const fabricMatch = !item.fabric || String(v.fabric || '').toLowerCase() === String(item.fabric).toLowerCase();
-                  return colorMatch && fabricMatch;
-                });
-              }
-              
-              // 2. Fallback: match by variant key string
-              if (!matchedVariant && variantKey) {
-                matchedVariant = product.variants.find((v) =>
-                  String(v._id) === String(variantKey) ||
-                  String(v.color || '').toLowerCase() === String(variantKey).toLowerCase() ||
-                  String(v.fabric || '').toLowerCase() === String(variantKey).toLowerCase()
-                );
-              }
-              // 3. Fallback: match by price or MRP
-              if (!matchedVariant && item.price) {
-                matchedVariant = product.variants.find(v => 
-                  Number(v.price) === Number(item.price) || Number(v.mrp) === Number(item.price)
-                );
-              }
+    const enrichedOrders = orders.map((orderObj) => {
+      const enrichedItems = (orderObj.orderItems || []).map((item) => {
+        try {
+          const product = item.product;
+          if (!product || !product.variants?.length) return item;
 
-              // Filter product variants to only show the matched one, avoiding frontend mismatch
-              if (matchedVariant && product.variants) {
-                product.variants = [matchedVariant];
-              }
+          // Try to match variant by color+fabric (most reliable), then variant key, then price
+          const variantKey = item.variant || '';
+          let matchedVariant = null;
 
-              return {
-                ...item,
-                product, // override populated product with the filtered one
-                fabric: item.fabric || matchedVariant?.fabric || "",
-                color: item.color || matchedVariant?.color || "",
-                variant: item.variant || (matchedVariant ? `${matchedVariant.color} - ${matchedVariant.fabric}` : ""),
-                selectedVariant: matchedVariant || null // Ensure frontend gets it directly if needed
-              };
-            } catch {
-              return item;
-            }
-          })
-        );
+          // 1. Match by stored color + fabric (most reliable for enriched orders)
+          if (item.color || item.fabric) {
+            matchedVariant = product.variants.find((v) => {
+              const colorMatch = !item.color || String(v.color || '').toLowerCase() === String(item.color).toLowerCase();
+              const fabricMatch = !item.fabric || String(v.fabric || '').toLowerCase() === String(item.fabric).toLowerCase();
+              return colorMatch && fabricMatch;
+            });
+          }
 
-        const rawDiscountPrice = Number(orderObj.discountPrice || orderObj.discount || 0) || 0;
-        const fallbackDiscountPrice = Math.max(
-          0,
-          (Number(orderObj.itemsPrice) || 0) - ((Number(orderObj.totalPrice) || 0) - (Number(orderObj.taxPrice) || 0) - (Number(orderObj.shippingPrice) || 0))
-        );
+          // 2. Fallback: match by variant key string
+          if (!matchedVariant && variantKey) {
+            matchedVariant = product.variants.find((v) =>
+              String(v._id) === String(variantKey) ||
+              String(v.color || '').toLowerCase() === String(variantKey).toLowerCase() ||
+              String(v.fabric || '').toLowerCase() === String(variantKey).toLowerCase()
+            );
+          }
+          // 3. Fallback: match by price or MRP
+          if (!matchedVariant && item.price) {
+            matchedVariant = product.variants.find((v) =>
+              Number(v.price) === Number(item.price) || Number(v.mrp) === Number(item.price)
+            );
+          }
 
-        return {
-          ...orderObj,
-          orderItems: enrichedItems,
-          discountPrice: rawDiscountPrice || fallbackDiscountPrice,
-        };
-      })
-    );
+          // Filter product variants to only show the matched one, avoiding frontend mismatch
+          if (matchedVariant && product.variants) {
+            product.variants = [matchedVariant];
+          }
+
+          return {
+            ...item,
+            product,
+            fabric: item.fabric || matchedVariant?.fabric || "",
+            color: item.color || matchedVariant?.color || "",
+            variant: item.variant || (matchedVariant ? `${matchedVariant.color} - ${matchedVariant.fabric}` : ""),
+            selectedVariant: matchedVariant || null,
+          };
+        } catch {
+          return item;
+        }
+      });
+
+      const rawDiscountPrice = Number(orderObj.discountPrice || orderObj.discount || 0) || 0;
+      const fallbackDiscountPrice = Math.max(
+        0,
+        (Number(orderObj.itemsPrice) || 0) - ((Number(orderObj.totalPrice) || 0) - (Number(orderObj.taxPrice) || 0) - (Number(orderObj.shippingPrice) || 0))
+      );
+
+      return {
+        ...orderObj,
+        orderItems: enrichedItems,
+        discountPrice: rawDiscountPrice || fallbackDiscountPrice,
+      };
+    });
+    console.timeEnd('enrichOrders');
 
     res.json({
       success: true,
       data: enrichedOrders
     });
+    console.timeEnd('getOrders');
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
