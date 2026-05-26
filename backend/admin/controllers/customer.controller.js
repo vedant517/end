@@ -32,11 +32,37 @@ export const getCustomerStats = async (req, res) => {
       { $count: "total" }
     ]);
 
+    // 📈 Weekly Growth (Unique active customers per day for the last 7 days)
+    const weeklyGrowth = await Order.aggregate([
+      { $match: { createdAt: { $gte: lastWeek } } },
+      {
+        $group: {
+          _id: {
+            dayOfWeek: { $dayOfWeek: "$createdAt" },
+            user: "$user"
+          }
+        }
+      },
+      {
+        $group: {
+          _id: "$_id.dayOfWeek",
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const dayMap = { 1: "Sun", 2: "Mon", 3: "Tue", 4: "Wed", 5: "Thu", 6: "Fri", 7: "Sat" };
+    const formattedWeeklyGrowth = weeklyGrowth.map(item => ({
+      day: dayMap[item._id],
+      count: item.count
+    }));
+
     res.json({
       success: true,
       totalCustomers: totalCustomers[0]?.total || 0,
       newCustomers: newCustomers[0]?.total || 0,
-      repeatCustomers: repeatCustomers[0]?.total || 0
+      repeatCustomers: repeatCustomers[0]?.total || 0,
+      weeklyGrowth: formattedWeeklyGrowth
     });
 
 
