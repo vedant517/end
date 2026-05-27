@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   Filter, Plus, IndianRupee, ShoppingBag, AlertCircle, Bell, Sun, Clock, MoreVertical, Search,
@@ -50,6 +51,7 @@ function StatCard({ title, value, badge, badgeUp, sub, onClick, loading, isFirst
 }
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { data: statsData, isLoading: statsLoading } = useGetOrderStatsQuery(undefined, {
     pollingInterval: 30000,
@@ -91,15 +93,6 @@ const Dashboard = () => {
           <p className="text-xs text-slate-400 mt-0.5 mb-0">Welcome back to your store overview</p>
         </div>
         <div className="flex items-center gap-2.5 flex-shrink-0">
-          <button className="bg-transparent border-none cursor-pointer text-slate-400 relative p-1.5 rounded-full">
-            <Bell size={18} />
-            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-rose-500 border-2 border-slate-50 rounded-full block"></span>
-          </button>
-          <div className="w-11 h-6 bg-amber-100 rounded-xl flex items-center p-0.5 cursor-pointer">
-            <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-sm">
-              <Sun size={11} color="#85754E" strokeWidth={3} />
-            </div>
-          </div>
           <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
             <div className="hidden sm:flex flex-col text-right">
               <p className="text-xs font-bold text-slate-800 m-0 leading-none">Admin</p>
@@ -150,29 +143,20 @@ const Dashboard = () => {
         <div className="lg:col-span-2 bg-white rounded-2xl p-4 border border-slate-200 flex flex-col min-w-0 overflow-hidden">
           <div className="flex justify-between items-center mb-3.5 gap-2 flex-wrap">
             <p className="text-[13px] font-extrabold text-heritage m-0">Report for this week</p>
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <div className="flex border border-amber-100 rounded-2xl p-0.5 bg-[#FFF5E2]">
-                <button className="px-2.5 py-0.5 text-[11px] font-bold text-[#85754E] bg-white rounded-2xl border-none cursor-pointer shadow-sm">This week</button>
-                <button className="px-2.5 py-0.5 text-[11px] font-bold text-slate-400 bg-transparent border-none cursor-pointer">Last week</button>
-              </div>
-              <button className="bg-transparent border-none cursor-pointer text-slate-400"><MoreVertical size={15} /></button>
-            </div>
           </div>
 
           {/* 5-stat row */}
           <div className="grid grid-cols-5 gap-1.5 mb-3.5">
             {[
-              { val: customerLoading ? '...' : String(customerStats?.data?.totalCustomers || 0), name: 'Customers', active: true },
+              { val: customerLoading ? '...' : String(customerStats?.totalCustomers || 0), name: 'Customers', active: true },
               { val: String(totalProducts), name: 'Total Prod.' },
               { val: String(stockProducts), name: 'In Stock' },
               { val: String(outOfStockProducts), name: 'Out of Stock' },
               { val: statsLoading ? '...' : formatCompactINR(statsData?.totalRevenue || 0), name: 'Revenue' },
             ].map((stat, i) => (
-              <div key={i} className={`pb-2 min-w-0 ${stat.active ? 'border-b-2 border-[#85754E] bg-amber-50/50' : 'border-b-2 border-slate-100'}`}>
-                <div className="px-1">
-                  <div className="text-[13px] font-bold text-slate-800 truncate">{stat.val}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5 font-bold uppercase tracking-[0.04em] truncate">{stat.name}</div>
-                </div>
+              <div key={i} className={`p-2 rounded-xl flex flex-col justify-center border ${stat.active ? 'bg-amber-50/50 border-amber-100' : 'bg-slate-50 border-transparent'}`}>
+                <div className={`text-[15px] font-black leading-none mb-1 ${stat.active ? 'text-[#85754E]' : 'text-slate-700'}`}>{stat.val}</div>
+                <div className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wide truncate">{stat.name}</div>
               </div>
             ))}
           </div>
@@ -217,7 +201,6 @@ const Dashboard = () => {
                 <div className="text-2xl font-bold text-slate-800 mt-1">{statsLoading ? '...' : (statsData?.activeUsers30m || 0)}</div>
                 <p className="text-[10px] text-slate-400 mt-1 mb-0">Live active users</p>
               </div>
-              <button className="bg-transparent border-none cursor-pointer text-slate-400 shrink-0 ml-2"><MoreVertical size={15} /></button>
             </div>
             <div className="h-12 w-full mt-2">
               <ResponsiveContainer width="100%" height="100%">
@@ -261,9 +244,6 @@ const Dashboard = () => {
         <div className="lg:col-span-2 bg-white rounded-2xl p-4 border border-slate-200 flex flex-col min-w-0 overflow-hidden">
           <div className="flex justify-between items-center mb-3.5 gap-2 flex-wrap">
             <p className="text-[13px] font-bold text-heritage m-0">Transaction</p>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-[#85754E] text-white text-[11px] font-medium rounded-lg border-none cursor-pointer shrink-0">
-              Filter <Filter size={11} />
-            </button>
           </div>
           <div className="overflow-x-auto w-full">
             <table className="w-full text-left border-collapse" style={{ minWidth: '400px' }}>
@@ -304,7 +284,7 @@ const Dashboard = () => {
             </table>
           </div>
           <div className="flex justify-end pt-3 mt-auto">
-            <button className="px-3 py-1 border border-amber-200 text-heritage bg-transparent text-[11px] font-semibold rounded-2xl cursor-pointer">Details</button>
+            <button onClick={() => navigate('/transactions')} className="px-3 py-1 border border-amber-200 text-heritage bg-transparent text-[11px] font-semibold rounded-2xl cursor-pointer hover:bg-amber-50">Details</button>
           </div>
         </div>
 
@@ -351,9 +331,6 @@ const Dashboard = () => {
         <div className="lg:col-span-2 bg-white rounded-2xl p-4 border border-slate-200 flex flex-col min-w-0 overflow-hidden">
           <div className="flex justify-between items-center mb-3.5 gap-2 flex-wrap">
             <p className="text-[13px] font-bold text-heritage m-0">Best selling product</p>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 bg-[#85754E] text-white text-[11px] font-medium rounded-lg border-none cursor-pointer shrink-0">
-              Filter <Filter size={11} />
-            </button>
           </div>
           <div className="overflow-x-auto w-full">
             <table className="w-full text-left border-collapse" style={{ minWidth: '380px' }}>
@@ -405,7 +382,7 @@ const Dashboard = () => {
         <div className="bg-white rounded-2xl p-4 border border-slate-200 flex flex-col min-w-0">
           <div className="flex justify-between items-center mb-3">
             <p className="text-xs font-bold text-heritage m-0">Add New Product</p>
-            <button className="text-[11px] text-heritage flex items-center gap-1 font-semibold bg-transparent border-none cursor-pointer shrink-0">
+            <button onClick={() => navigate('/add-product')} className="text-[11px] text-heritage flex items-center gap-1 font-semibold bg-transparent border-none cursor-pointer shrink-0 hover:opacity-75">
               <div className="w-3.5 h-3.5 rounded border border-[#85754E] flex items-center justify-center">
                 <Plus size={9} strokeWidth={3} />
               </div>

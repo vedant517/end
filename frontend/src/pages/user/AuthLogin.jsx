@@ -250,12 +250,20 @@ export default function AuthLogin() {
           </form>
         )}
 
-        <p className="text-center mt-8 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] m-0">
-          Admin panel?{' '}
-          <Link to="/" className="text-[#85754E] no-underline hover:underline">
-            Admin login
-          </Link>
-        </p>
+        <div className="flex flex-col gap-2 text-center mt-8">
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] m-0">
+            Admin panel?{' '}
+            <Link to="/" className="text-[#85754E] no-underline hover:underline">
+              Admin login
+            </Link>
+          </p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] m-0">
+            New here?{' '}
+            <Link to="/register" className="text-[#85754E] no-underline hover:underline">
+              Create account
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

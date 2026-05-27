@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   useGetCustomersQuery,
   useGetCustomerStatsQuery,
@@ -113,7 +114,7 @@ function CustomerWeeklyChart({ data, loading }) {
 }
 
 /* ── Customer Details Modal ── */
-function CustomerDetailsModal({ customer, onClose }) {
+function CustomerDetailsModal({ customer, onClose, onViewOrders }) {
   if (!customer) return null;
   const { id, email, phone, name, displayName, avatarLetter } = resolveCustomer(customer);
 
@@ -191,7 +192,13 @@ function CustomerDetailsModal({ customer, onClose }) {
               Close
             </button>
             <button
-              onClick={() => alert(`View orders for: ${id}`)}
+              onClick={() => {
+                if (onViewOrders && id) {
+                  onViewOrders(id);
+                } else {
+                  alert(`View orders for: ${id}`);
+                }
+              }}
               className="flex-1 py-2.5 border-0 rounded-xl text-white text-xs font-bold cursor-pointer hover:opacity-90"
               style={{ background: `linear-gradient(135deg, ${G}, #b09e6d)`, boxShadow: '0 4px 12px rgba(147,131,89,0.3)' }}
             >
@@ -206,6 +213,7 @@ function CustomerDetailsModal({ customer, onClose }) {
 
 /* ── Main Component ── */
 export default function Customers() {
+  const navigate = useNavigate();
   const [currentPage,      setCurrentPage]      = useState(1);
   const [searchQuery,      setSearchQuery]      = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -346,36 +354,12 @@ export default function Customers() {
                 className="border-0 outline-none w-full bg-transparent text-xs text-slate-900"
               />
             </div>
-            <Bell size={18} className="text-slate-500 cursor-pointer" />
-            <Zap  size={18} className="text-slate-500 cursor-pointer" />
-            <div
-              className="w-8 h-8 rounded-full flex items-center justify-center text-[13px] font-bold text-white cursor-pointer"
-              style={{ background: `linear-gradient(135deg, ${G}, #b09e6d)`, boxShadow: '0 2px 8px rgba(147,131,89,0.3)' }}
-            >A</div>
           </div>
         </div>
 
         {/* Section header */}
         <div className="flex items-center justify-between mb-4">
           <span className="text-sm font-bold text-slate-900">Overview</span>
-          <div className="relative">
-            <button
-              onClick={() => setShowMoreActions(!showMoreActions)}
-              className="flex items-center gap-1 bg-white text-slate-500 border border-slate-200 rounded-lg px-3.5 py-1.5 text-xs cursor-pointer font-semibold hover:bg-slate-50"
-            >
-              More Action <ChevronDown size={12} />
-            </button>
-            {showMoreActions && (
-              <div className="absolute top-full right-0 bg-white border border-slate-200 rounded-xl py-1.5 min-w-[160px] shadow-xl z-10 mt-1">
-                {["Export CSV", "Import", "Bulk Email", "Bulk SMS", "Settings"].map(a => (
-                  <div key={a} onClick={() => { alert(`${a} clicked`); setShowMoreActions(false); }}
-                    className="px-3.5 py-2 text-xs cursor-pointer text-slate-500 hover:bg-slate-50">
-                    {a}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
         </div>
 
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
@@ -404,9 +388,6 @@ export default function Customers() {
                   <ChevronRight size={13} />
                 </button>
               </div>
-              <button className="flex items-center gap-1 text-[10px] text-slate-500 border border-slate-200 rounded-lg px-2.5 py-1 bg-transparent cursor-pointer font-semibold hover:bg-slate-50">
-                <Filter size={11} /> Filter
-              </button>
             </div>
           </div>
 
@@ -443,10 +424,6 @@ export default function Customers() {
               <p className="text-[10px] text-slate-400 mt-0.5 mb-0">
                 {isFetching ? "Refreshing…" : `${displayTotalCustomers} total · ${customers.length} shown`}
               </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <SlidersHorizontal size={15} className="text-slate-500 cursor-pointer" />
-              <ArrowLeftRight    size={15} className="text-slate-500 cursor-pointer" />
             </div>
           </div>
 
@@ -586,7 +563,11 @@ export default function Customers() {
       </div>
 
       {selectedCustomer && (
-        <CustomerDetailsModal customer={selectedCustomer} onClose={() => setSelectedCustomer(null)} />
+        <CustomerDetailsModal
+          customer={selectedCustomer}
+          onClose={() => setSelectedCustomer(null)}
+          onViewOrders={(id) => navigate('/orders', { state: { search: id } })}
+        />
       )}
     </div>
   );

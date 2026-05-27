@@ -47,6 +47,34 @@ export const authApi = createApi({
       query: () => '/auth/me',
       providesTags: ['AuthUser'],
     }),
+    sendRegisterEmailOtp: builder.mutation({
+      query: (data) => ({
+        url: '/auth/register/send-email-otp',
+        method: 'POST',
+        body: data,
+      }),
+    }),
+    verifyRegisterEmailOtp: builder.mutation({
+      query: (data) => ({
+        url: '/auth/register/verify-email-otp',
+        method: 'POST',
+        body: data,
+      }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        const { data } = await queryFulfilled;
+        const user = data?.user;
+        if (user) {
+          dispatch(
+            setCredentials({
+              role: user.role || 'user',
+              userId: user.id,
+              user,
+              isCustomer: true,
+            })
+          );
+        }
+      },
+    }),
     logout: builder.mutation({
       query: () => ({
         url: '/auth/logout',
@@ -65,6 +93,8 @@ export const {
   useRegisterMutation,
   useSendOtpMutation,
   useVerifyOtpMutation,
+  useSendRegisterEmailOtpMutation,
+  useVerifyRegisterEmailOtpMutation,
   useGetCurrentUserQuery,
   useLogoutMutation,
 } = authApi;

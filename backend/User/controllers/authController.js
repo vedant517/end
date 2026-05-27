@@ -119,7 +119,6 @@ export const verifyOTP = async (req, res) => {
     res.status(500).json({ success: false, message: err.message || "Internal server error" });
   }
 };
-
 // ─── GET CURRENT USER ───────────────────────────────────────────────────────
 export const getCurrentUser = async (req, res) => {
   try {
@@ -198,5 +197,95 @@ export const registerUser = async (req, res) => {
   } catch (err) {
     console.error("Registration Error:", err);
     res.status(500).json({ success: false, message: err.message || "Internal server error" });
+  }
+};
+
+// ─── SEND REGISTER EMAIL OTP ───────────────────────────────────────────────
+export const sendRegisterEmailOtp = async (req, res) => {
+  try {
+    const { name, phonenum, email } = req.body || {};
+    const mobileId = parseIdentifier(phonenum);
+    const emailId = parseIdentifier(email);
+
+    if (!name?.trim()) return res.status(400).json({ success: false, message: "Name is required." });
+    if (mobileId?.error) return res.status(400).json({ success: false, message: mobileId.error });
+    if (emailId?.error) return res.status(400).json({ success: false, message: emailId.error });
+
+    const existingMobile = mobileId?.key ? await User.findOne({ phonenum: mobileId.key }) : null;
+    if (existingMobile) return res.status(400).json({ success: false, message: "User already exists with this mobile number. Please login." });
+
+    const existingEmail = emailId?.key ? await User.findOne({ email: emailId.key }) : null;
+    if (existingEmail) return res.status(400).json({ success: false, message: "User already exists with this email. Please login." });
+
+    const otp = generateEmailOtp();
+    saveOtp(emailId.key, { otp, type: "email" });
+
+    let delivered = false;
+    try {
+      await sendOtpEmail(emailId.key, otp);
+      delivered = true;
+    } catch (mailErr) {
+      console.error("[AUTH] Register Email OTP failed:", mailErr.message);
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`[AUTH] Dev register email OTP for ${emailId.key}: ${otp}`);
+      }
+      return res.status(503).json({ success: false, message: mailErr.message || "Failed to send OTP email." });
+    }
+
+    res.status(200).json({
+      success: true,
+      delivered,
+      expiresIn: OTP_EXPIRY_MS,
+      message: "OTP sent to your email address.",
+    });
+  } catch (err) {
+    console.error("Send Register OTP Error:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// ─── VERIFY REGISTER EMAIL OTP ─────────────────────────────────────────────
+export const verifyRegisterEmailOtp = async (req, res) => {
+  try {
+    const { name, phonenum, email, otp } = req.body || {};
+    const mobileId = parseIdentifier(phonenum);
+    const emailId = parseIdentifier(email);
+
+    if (!name?.trim() || mobileId?.error || emailId?.error) {
+      return res.status(400).json({ success: false, message: "Invalid user details provided." });
+    }
+
+    const sanitizedOtp = String(otp || "").trim().replace(/\s/g, "");
+    if (!sanitizedOtp) return res.status(400).json({ success: false, message: "OTP is required." });
+
+    const check = verifyStoredOtp(emailId.key, sanitizedOtp);
+    if (!check.ok) {
+      return res.status(400).json({ success: false, message: check.message });
+    }
+
+    // Double check exists before creating
+    const existingMobile = await User.findOne({ phonenum: mobileId.key });
+    if (existingMobile) return res.status(400).json({ success: false, message: "User already exists with this mobile number." });
+    const existingEmail = await User.findOne({ email: emailId.key });
+    if (existingEmail) return res.status(400).json({ success: false, message: "User already exists with this email." });
+
+    const user = await User.create({
+      name: name.trim(),
+      email: emailId.key,
+      phonenum: mobileId.key,
+    });
+
+    const token = signAuthToken(user);
+    setAuthCookie(res, token);
+    const userPayload = formatAuthUser(user, token);
+
+    res.status(201).json({
+      success: true,
+      message: "Registration successful. You are now logged in.",
+      user: userPayload,
+    });
+  } catch (err) {
+    console.error("Verify Register OTP Error:", err);
+    res.status(500).json({ success: false, message: "Internal server error" });
   }
 };

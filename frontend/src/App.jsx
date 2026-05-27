@@ -17,6 +17,7 @@ import Categories from './pages/admin/Categories';
 import Enquiries from './pages/admin/Enquiries';
 import ProductReviewPage from './pages/user/ProductReviewPage';
 import AuthLogin from './pages/user/AuthLogin';
+import Register from './pages/user/Register';
 import Shop from './pages/user/Shop';
 
 const LoadingSpinner = () => (
@@ -47,6 +48,7 @@ function App() {
           
           {/* Public / User routes */}
           <Route path="/login" element={<AuthLogin />} />
+          <Route path="/register" element={<Register />} />
           <Route path="/shop" element={<Shop />} />
           <Route path="/product/:id/reviews" element={<ProductReviewPage />} />
 

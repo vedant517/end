@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   MoreHorizontal,
   Search,
@@ -24,7 +24,8 @@ import {
   CheckCircle,
   AlertCircle,
   Printer,
-  Barcode
+  Barcode,
+  Download
 } from 'lucide-react';
 import {
   useGetOrdersQuery,
@@ -393,8 +394,9 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
    MAIN ORDER MANAGEMENT PAGE
 ══════════════════════════════════════════════ */
 export default function OrderManagement() {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('All order');
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(location.state?.search || '');
   const [currentPage, setCurrentPage] = useState(1);
   const [showMoreActions, setShowMoreActions] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -428,6 +430,7 @@ export default function OrderManagement() {
       toast.error('Failed to create order');
     }
   };
+
 
   function getProductEmoji(productName) {
     const map = { headphone: '🎧', shirt: '👕', wallet: '👛', pillow: '🛏', dumbbell: '🏋', coffee: '☕', cap: '🧢', webcam: '📷', bulb: '💡', saree: '🥻', dress: '👗' };
@@ -473,13 +476,50 @@ export default function OrderManagement() {
     [ordersResponse, statusOverrides]);
 
   const filteredOrders = useMemo(() =>
-    orders.filter((o) =>
-      (o.product?.toLowerCase() || '').includes(searchQuery.toLowerCase()) ||
-      (o.id?.toLowerCase() || '').includes(searchQuery.toLowerCase())
-    ),
+    orders.filter((o) => {
+      const uid = (o.userId?._id || o.userId)?.toString().toLowerCase() || '';
+      const uName = (o.userId?.name || '').toString().toLowerCase();
+      const sq = searchQuery.toLowerCase();
+      return (
+        (o.product?.toLowerCase() || '').includes(sq) ||
+        (o.id?.toLowerCase() || '').includes(sq) ||
+        uid.includes(sq) ||
+        uName.includes(sq)
+      );
+    }),
     [orders, searchQuery]);
 
   const totalPages = Math.ceil(filteredOrders.length / itemsPerPage);
+
+  const handleExportCSV = () => {
+    if (!filteredOrders.length) {
+      toast.error('No orders to export');
+      return;
+    }
+
+    const headers = ['Order ID', 'Product', 'Date', 'Total Price', 'Status', 'Payment', 'Customer Name', 'Phone'];
+    const rows = filteredOrders.map(o => [
+      `"${o.id}"`,
+      `"${o.product || ''}"`,
+      `"${o.date}"`,
+      o.totalPrice,
+      `"${o.status}"`,
+      `"${o.payment}"`,
+      `"${o.shippingAddress?.fullName || ''}"`,
+      `"${o.shippingAddress?.phone || ''}"`
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `orders_export_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Orders exported successfully!');
+  };
   const paginatedOrders = useMemo(() =>
     filteredOrders.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage),
     [filteredOrders, currentPage]);
@@ -554,13 +594,6 @@ export default function OrderManagement() {
                 className="pl-8 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs w-48 md:w-56 outline-none text-slate-800"
               />
             </div>
-            <div className="relative p-2 bg-white border border-slate-200 rounded-xl cursor-pointer leading-none shrink-0">
-              <Bell size={16} className="text-slate-500" />
-              <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full" />
-            </div>
-            <div className="p-2 bg-white border border-slate-200 rounded-xl cursor-pointer leading-none shrink-0">
-              <Zap size={16} className="text-slate-500" />
-            </div>
           </div>
         </div>
 
@@ -580,33 +613,17 @@ export default function OrderManagement() {
             <span className="text-xs font-black text-slate-800 uppercase tracking-[0.1em]">Order Repository</span>
             <div className="flex items-center gap-2 flex-wrap">
               <button
+                onClick={handleExportCSV}
+                className="flex items-center gap-1.5 bg-white text-slate-700 border border-slate-200 shadow-sm rounded-xl px-3 py-2 text-[11px] font-bold cursor-pointer whitespace-nowrap hover:bg-slate-50"
+              >
+                <Download size={13} strokeWidth={3} /> Export Data
+              </button>
+              <button
                 onClick={handleManualOrder}
                 className="flex items-center gap-1.5 bg-[#85754E] text-white border-none rounded-xl px-3 py-2 text-[11px] font-bold cursor-pointer whitespace-nowrap"
               >
                 <Plus size={13} strokeWidth={3} /> Add Order
               </button>
-              <div className="relative">
-                <button
-                  onClick={() => setShowMoreActions(!showMoreActions)}
-                  className="flex items-center gap-1.5 bg-white text-slate-500 border border-slate-200 rounded-xl px-3 py-2 text-[11px] font-bold cursor-pointer whitespace-nowrap"
-                >
-                  More Actions
-                  <ChevronDown size={13} className={`transition-transform duration-200 ${showMoreActions ? 'rotate-180' : ''}`} />
-                </button>
-                {showMoreActions && (
-                  <div className="absolute top-[calc(100%+6px)] right-0 bg-white border border-slate-200 rounded-2xl p-1.5 min-w-[160px] shadow-xl z-20">
-                    {['Export Data', 'Print Manifest', 'Bulk Approval', 'Settings'].map((action) => (
-                      <div
-                        key={action}
-                        onClick={() => { if (action.includes('Export')) handleExport(); setShowMoreActions(false); }}
-                        className="px-3.5 py-2 text-[11px] font-bold text-slate-500 cursor-pointer rounded-xl hover:bg-amber-50 hover:text-[#85754E] transition-all"
-                      >
-                        {action}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
@@ -626,14 +643,6 @@ export default function OrderManagement() {
                   </button>
                 );
               })}
-            </div>
-
-            <div className="flex gap-2">
-              {[{ icon: <SlidersHorizontal size={13} />, label: 'Filters' }, { icon: <ArrowLeftRight size={13} />, label: 'Relational' }].map(({ icon, label }) => (
-                <button key={label} className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[11px] font-bold text-slate-500 cursor-pointer whitespace-nowrap">
-                  {icon} {label}
-                </button>
-              ))}
             </div>
           </div>
 

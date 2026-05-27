@@ -195,9 +195,6 @@ export default function Transactions() {
                 className="pl-9 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs w-60 outline-none"
               />
             </div>
-            <button className="p-2.5 bg-white border border-slate-200 rounded-xl cursor-pointer leading-none hover:bg-slate-50 transition-colors">
-              <Bell size={17} className="text-slate-500" />
-            </button>
           </div>
         </div>
 
@@ -230,14 +227,11 @@ export default function Transactions() {
               ))}
             </div>
             <div className="flex gap-2">
-              {[{ icon: <Filter size={14} />, label: 'Advanced' }, { icon: <RefreshCw size={14} />, label: 'Refresh' }].map(({ icon, label }) => (
-                <button
-                  key={label}
-                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-500 cursor-pointer hover:bg-slate-50 transition-colors"
-                >
-                  {icon} {label}
-                </button>
-              ))}
+              <button
+                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-500 cursor-pointer hover:bg-slate-50 transition-colors"
+              >
+                <RefreshCw size={14} /> Refresh
+              </button>
             </div>
           </div>
 
