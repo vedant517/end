@@ -24,6 +24,8 @@ export const sendOtpEmail = async (to, otp) => {
     port,
     secure,
     auth: { user, pass },
+    tls: { rejectUnauthorized: false }, // Optional but helps with Render/Gmail connections
+    family: 4, // Force IPv4 to prevent ENETUNREACH IPv6 errors on Render
   });
 
   await transporter.sendMail({
