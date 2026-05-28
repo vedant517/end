@@ -1,5 +1,8 @@
 import nodemailer from "nodemailer";
+import dns from "dns";
 
+// Force Node.js to prefer IPv4 over IPv6 globally for this service
+dns.setDefaultResultOrder('ipv4first');
 const getSmtpConfig = () => {
   const user = process.env.EMAIL_USER || process.env.SMTP_USER;
   const pass = process.env.EMAIL_PASS || process.env.SMTP_PASS;
