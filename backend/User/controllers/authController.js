@@ -39,18 +39,22 @@ export const sendOTP = async (req, res) => {
     const otp = generateEmailOtp();
     saveOtp(identifier.key, { otp, type: "email" });
 
-    // Send email asynchronously to improve API response time
-    sendOtpEmail(identifier.key, otp).catch(mailErr => {
+    let delivered = false;
+    try {
+      await sendOtpEmail(identifier.key, otp);
+      delivered = true;
+    } catch (mailErr) {
       console.error("[AUTH] Email OTP failed:", mailErr.message);
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[AUTH] Dev email OTP for ${identifier.key}: ${otp}`);
-      }
-    });
+      return res.status(503).json({
+        success: false,
+        message: mailErr.message || "Failed to send OTP email. Check EMAIL_USER and EMAIL_PASS.",
+      });
+    }
 
     res.status(200).json({
       success: true,
       channel: "email",
-      delivered: true, // Optimistically assume success for faster response
+      delivered,
       expiresIn: OTP_EXPIRY_MS,
       message: "OTP sent to your email address.",
     });
@@ -213,17 +217,18 @@ export const sendRegisterEmailOtp = async (req, res) => {
     const otp = generateEmailOtp();
     saveOtp(emailId.key, { otp, type: "email" });
 
-    // Send email asynchronously to improve API response time
-    sendOtpEmail(emailId.key, otp).catch(mailErr => {
+    let delivered = false;
+    try {
+      await sendOtpEmail(emailId.key, otp);
+      delivered = true;
+    } catch (mailErr) {
       console.error("[AUTH] Register Email OTP failed:", mailErr.message);
-      if (process.env.NODE_ENV !== "production") {
-        console.log(`[AUTH] Dev register email OTP for ${emailId.key}: ${otp}`);
-      }
-    });
+      return res.status(503).json({ success: false, message: mailErr.message || "Failed to send OTP email." });
+    }
 
     res.status(200).json({
       success: true,
-      delivered: true, // Optimistically assume success for faster response
+      delivered,
       expiresIn: OTP_EXPIRY_MS,
       message: "OTP sent to your email address.",
     });

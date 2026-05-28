@@ -6,9 +6,11 @@ dns.setDefaultResultOrder('ipv4first');
 const getSmtpConfig = () => {
   const user = process.env.EMAIL_USER || process.env.SMTP_USER;
   const pass = process.env.EMAIL_PASS || process.env.SMTP_PASS;
-  const host = process.env.SMTP_HOST || "smtp.gmail.com";
-  const port = Number(process.env.SMTP_PORT || 587);
-  const secure = process.env.SMTP_SECURE === "true" || port === 465;
+  
+  // Hardcode port 465 and secure to bypass Render firewall issues
+  const host = "smtp.gmail.com";
+  const port = 465;
+  const secure = true;
 
   return { user, pass, host, port, secure };
 };
