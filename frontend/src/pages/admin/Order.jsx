@@ -31,7 +31,6 @@ import {
   useGetOrdersQuery,
   useGetOrderStatsQuery,
   useUpdateOrderStatusMutation,
-  useCreateOrderMutation,
 } from '../../features/orders/orderApi';
 import { formatINR } from '../../utils/currency';
 import { resolveImageUrl, getPlaceholderImage } from '../../utils/imageUrl';
@@ -393,6 +392,8 @@ function StatusUpdateModal({ order, onClose, onUpdate, isUpdating }) {
 /* ══════════════════════════════════════════════
    MAIN ORDER MANAGEMENT PAGE
 ══════════════════════════════════════════════ */
+
+
 export default function OrderManagement() {
   const location = useLocation();
   const [activeTab, setActiveTab] = useState('All order');
@@ -413,24 +414,6 @@ export default function OrderManagement() {
   const { data: ordersResponse, isLoading: ordersLoading, error: ordersError, refetch } = useGetOrdersQuery(statusFilter);
   const { data: statsData, isLoading: statsLoading } = useGetOrderStatsQuery();
   const [updateStatus, { isLoading: isUpdating }] = useUpdateOrderStatusMutation();
-  const [createOrder] = useCreateOrderMutation();
-
-  const handleManualOrder = async () => {
-    try {
-      await createOrder({
-        orderItems: [{
-          name: 'Manual Order Product', qty: 1,
-          image: 'https://cdn-icons-png.flaticon.com/512/3081/3081559.png',
-          price: 99.99, product: '65f1234567890abcdef00001',
-        }],
-        itemsPrice: 99.99, totalPrice: 99.99, isPaid: true, status: 'Pending',
-      }).unwrap();
-      toast.success('Manual order created for testing');
-    } catch {
-      toast.error('Failed to create order');
-    }
-  };
-
 
   function getProductEmoji(productName) {
     const map = { headphone: '🎧', shirt: '👕', wallet: '👛', pillow: '🛏', dumbbell: '🏋', coffee: '☕', cap: '🧢', webcam: '📷', bulb: '💡', saree: '🥻', dress: '👗' };
@@ -552,10 +535,6 @@ export default function OrderManagement() {
     }
   };
 
-  const handleExport = () => {
-    toast.loading('Exporting orders...');
-    setTimeout(() => { toast.dismiss(); toast.success('Orders exported!'); }, 1000);
-  };
 
   if (ordersError) return (
     <div className="flex items-center justify-center min-h-[400px]">
@@ -617,12 +596,6 @@ export default function OrderManagement() {
                 className="flex items-center gap-1.5 bg-white text-slate-700 border border-slate-200 shadow-sm rounded-xl px-3 py-2 text-[11px] font-bold cursor-pointer whitespace-nowrap hover:bg-slate-50"
               >
                 <Download size={13} strokeWidth={3} /> Export Data
-              </button>
-              <button
-                onClick={handleManualOrder}
-                className="flex items-center gap-1.5 bg-[#85754E] text-white border-none rounded-xl px-3 py-2 text-[11px] font-bold cursor-pointer whitespace-nowrap"
-              >
-                <Plus size={13} strokeWidth={3} /> Add Order
               </button>
             </div>
           </div>
@@ -787,6 +760,8 @@ export default function OrderManagement() {
           </div>
         </div>
       </div>
+
+
 
       {/* Modal */}
       {selectedOrder && (

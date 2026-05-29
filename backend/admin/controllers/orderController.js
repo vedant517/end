@@ -3,6 +3,47 @@ import Transaction from "../models/Transaction.js";
 import Product from "../models/Product.js";
 import User from "../../models/User.js";
 
+const toNumber = (value, fallback = 0) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+
+const cleanString = (value) => String(value || "").trim();
+
+const makeId = (prefix) =>
+  `${prefix}${Date.now()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+
+const getManualOrderItems = (body) => {
+  const rawItems = Array.isArray(body.orderItems) && body.orderItems.length
+    ? body.orderItems
+    : [{
+        name: body.productName,
+        qty: body.qty,
+        price: body.price,
+        image: body.image,
+        product: body.product,
+        variant: body.variant,
+        fabric: body.fabric,
+        color: body.color,
+      }];
+
+  return rawItems.map((item) => {
+    const qty = Math.max(1, toNumber(item.qty || item.quantity, 1));
+    const price = Math.max(0, toNumber(item.price, 0));
+
+    return {
+      name: cleanString(item.name || item.productName) || "Manual Order Item",
+      qty,
+      price,
+      image: cleanString(item.image) || "https://cdn-icons-png.flaticon.com/512/3081/3081559.png",
+      product: cleanString(item.product || item.productId) || undefined,
+      variant: cleanString(item.variant),
+      fabric: cleanString(item.fabric),
+      color: cleanString(item.color),
+    };
+  });
+};
+
 // GET ALL ORDERS
 export const getOrders = async (req, res) => {
   console.time('getOrders');
@@ -130,6 +171,114 @@ export const getOrderCancellationDetails = async (req, res) => {
   }
 };
 
+// CREATE MANUAL ORDER
+export const createManualOrder = async (req, res) => {
+  try {
+    const customer = req.body.customer || {};
+    const name = cleanString(customer.name || req.body.customerName || req.body.fullName);
+    const email = cleanString(customer.email || req.body.email).toLowerCase();
+    const phone = cleanString(customer.phone || req.body.phone || req.body.phonenum);
+
+    if (!name) {
+      return res.status(400).json({ success: false, message: "Customer name is required." });
+    }
+    if (!email && !phone) {
+      return res.status(400).json({ success: false, message: "Customer email or phone is required." });
+    }
+
+    const lookup = [];
+    if (email) lookup.push({ email });
+    if (phone) lookup.push({ phonenum: phone });
+
+    let user = lookup.length ? await User.findOne({ $or: lookup }) : null;
+    if (!user) {
+      user = await User.create({
+        name,
+        email: email || undefined,
+        phonenum: phone || undefined,
+        role: "user",
+      });
+    } else {
+      user.name = user.name || name;
+      if (email && !user.email) user.email = email;
+      if (phone && !user.phonenum) user.phonenum = phone;
+      await user.save();
+    }
+
+    const shipping = req.body.shippingAddress || {};
+    const shippingAddress = {
+      fullName: name,
+      email: email || undefined,
+      phone: phone || undefined,
+      address: cleanString(shipping.address || req.body.address),
+      city: cleanString(shipping.city || req.body.city),
+      state: cleanString(shipping.state || req.body.state),
+      postalCode: cleanString(shipping.postalCode || shipping.zipCode || req.body.postalCode || req.body.zipCode),
+      country: cleanString(shipping.country || req.body.country) || "India",
+    };
+
+    const orderItems = getManualOrderItems(req.body);
+    if (!orderItems.length || orderItems.some((item) => !item.name || item.price <= 0 || item.qty <= 0)) {
+      return res.status(400).json({
+        success: false,
+        message: "Add at least one item with product name, quantity, and price.",
+      });
+    }
+
+    const itemsPrice = orderItems.reduce((sum, item) => sum + item.price * item.qty, 0);
+    const shippingPrice = Math.max(0, toNumber(req.body.shippingPrice, 0));
+    const discountPrice = Math.max(0, toNumber(req.body.discountPrice, 0));
+    const taxPrice = Math.max(0, toNumber(req.body.taxPrice, 0));
+    const totalPrice = Math.max(0, toNumber(req.body.totalPrice, itemsPrice + shippingPrice + taxPrice - discountPrice));
+    const paymentMethod = cleanString(req.body.paymentMethod) || "COD";
+    const status = cleanString(req.body.status) || "Pending";
+    const isPaid = req.body.isPaid === true || req.body.isPaid === "true";
+
+    const order = await Order.create({
+      orderId: makeId("#ORD"),
+      user: user._id,
+      orderItems,
+      shippingAddress,
+      customerName: name,
+      customerPhone: phone,
+      itemsPrice,
+      taxPrice,
+      shippingPrice,
+      discountPrice,
+      totalPrice,
+      paymentMethod,
+      isPaid,
+      paidAt: isPaid ? new Date() : undefined,
+      status,
+      isDelivered: status === "Delivered",
+      deliveredAt: status === "Delivered" ? new Date() : undefined,
+      notes: cleanString(req.body.notes),
+      paymentStatus: isPaid ? "completed" : (paymentMethod.toUpperCase() === "COD" ? "cod" : "pending"),
+    });
+
+    try {
+      await Transaction.create({
+        transactionId: makeId("TXNMANUAL"),
+        order: order._id,
+        user: user._id,
+        razorpayOrderId: "MANUAL_" + order.orderId,
+        amount: totalPrice,
+        currency: "INR",
+        status: isPaid ? "captured" : (paymentMethod.toUpperCase() === "COD" ? "cod" : "created"),
+        paymentMethod,
+        notes: { source: "manual-admin-order" },
+      });
+    } catch (transactionErr) {
+      console.warn("Manual order transaction log failed:", transactionErr.message);
+    }
+
+    res.status(201).json({ success: true, data: order });
+  } catch (err) {
+    console.error("Manual Order Creation Error:", err);
+    res.status(500).json({ success: false, message: err.message || "Failed to create manual order." });
+  }
+};
+
 // UPDATE ORDER STATUS
 export const updateOrder = async (req, res) => {
   try {
@@ -147,6 +296,7 @@ export const updateOrder = async (req, res) => {
     // Handle stock restoration if status changes TO Cancelled
     if (status === "Cancelled" && order.status !== "Cancelled") {
       for (const item of order.orderItems) {
+        if (!item.product) continue;
         await Product.findByIdAndUpdate(item.product, {
           $inc: { stock: item.qty }
         });
@@ -156,6 +306,7 @@ export const updateOrder = async (req, res) => {
     // Handle stock decrease if status changes FROM Cancelled to something else
     if (order.status === "Cancelled" && status && status !== "Cancelled") {
       for (const item of order.orderItems) {
+        if (!item.product) continue;
         await Product.findByIdAndUpdate(item.product, {
           $inc: { stock: -item.qty }
         });

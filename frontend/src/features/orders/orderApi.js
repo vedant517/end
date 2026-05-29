@@ -54,14 +54,15 @@ export const orderApi = createApi({
         body: { amount },
       }),
     }),
-      createOrder: builder.mutation({
-        query: (orderData) => ({
-          url: '/orders',
+    createOrder: builder.mutation({
+      query: (orderData) => ({
+        url: '/orders',
         method: 'POST',
         body: orderData,
       }),
       invalidatesTags: ['Order', 'OrderStats'],
     }),
+
     getUserOrders: builder.query({
       query: () => '/orders/my-orders',
       providesTags: (result) =>

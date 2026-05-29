@@ -53,7 +53,9 @@ const configuredOrigins = [
   "http://localhost:3000",
   "http://127.0.0.1:3000",
   "https://www.sheetalya.com",
-  "http://www.sheetalya.com"
+  "http://www.sheetalya.com",
+  "https://www.admin.sheetalya.com",
+  "http://www.admin.sheetalya.com"
 ]
   .flatMap((value) => (value || "").split(","))
   .map(normalizeOrigin)

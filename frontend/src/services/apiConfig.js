@@ -4,10 +4,20 @@
  */
 
 const getApiBaseUrl = () => {
+  const browserHost = typeof window !== 'undefined' ? window.location?.hostname : '';
+  const isLocalPage = /^(localhost|127\.0\.0\.1)$/i.test(browserHost);
+
   let envUrl = import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL;
 
   if (envUrl) {
     envUrl = envUrl.trim();
+    const isLocalApiUrl = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?/i.test(envUrl);
+
+    // If the built API URL is local, but the page is opened on a non-local address (e.g. file:// or hosted domain)
+    if (isLocalApiUrl && !isLocalPage) {
+      return 'https://end-5-rtag.onrender.com/api';
+    }
+
     // Remove trailing slashes
     while (envUrl.endsWith('/')) {
       envUrl = envUrl.slice(0, -1);
@@ -20,7 +30,11 @@ const getApiBaseUrl = () => {
     return `${envUrl}/api`;
   }
 
-  return '/api';
+  // Smart fallback
+  if (isLocalPage) {
+    return 'http://localhost:5001/api';
+  }
+  return 'https://end-5-rtag.onrender.com/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();
